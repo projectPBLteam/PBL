@@ -1,0 +1,100 @@
+from privacy import laplace_local_differential_privacy
+from statistics_basic import print_column_statistics
+from statistics_advanced import run_regression_analysis, run_correlation_analysis
+from visualization import plot_confidence_intervals
+from io_utils import read_csvfile, maketbl, insert_data
+import pymysql
+import numpy as np
+
+def start_user_session():
+    # DB 연결
+    conn = pymysql.connect(
+        host='localhost',
+        user='code',
+        password='Ab123456',
+        db='privacy_db',
+        charset='utf8'
+    )
+    curs = conn.cursor()
+    tableN = 1 # 테이블 번호
+    epsilon = 1.0
+    sensitivity = 1.0
+
+    filename = input("읽을 파일의 이름을 입력하세요(확장자명까지): ")
+
+    if filename.endswith(".csv"):
+        input_string = read_csvfile(filename)
+        maketbl(input_string, conn, curs)
+        insert_data(input_string, conn, curs, tableN - 1)
+    else:
+        print("[오류] CSV 파일만 지원됩니다.")
+        return
+
+    query_n = 0
+    confidence_intervals_lower = []
+    confidence_intervals_upper = []
+
+    while True:
+        user_input = input("쿼리를 요청하시겠습니까? (엔터 = 계속 / q = 종료): ")
+        if user_input.lower() == 'q':
+            break
+
+        # 쿼리 발생
+        query_n += 1
+        result = laplace_local_differential_privacy(input_string, epsilon, sensitivity)
+
+        col_name = input("신뢰 구간을 계산할 컬럼명을 입력하세요: ")
+        try:
+            col_idx = input_string[0].index(col_name)
+        except ValueError:
+            print(f"[오류] '{col_name}' 컬럼을 찾을 수 없습니다.")
+            continue
+
+        # 숫자 값만 추출
+        numeric_values = []
+        for row in input_string[1:]:
+            try:
+                x = float(row[col_idx])
+                numeric_values.append(x)
+            except:
+                continue
+
+        if len(numeric_values) < 5:
+            print("데이터가 부족하여 샘플링할 수 없습니다.")
+            continue
+
+        sample_values = np.random.choice(numeric_values, size=5, replace=False)
+        SD = np.std(numeric_values, ddof=0)
+        SE = SD / np.sqrt(len(sample_values))
+        CI_lower = np.mean(sample_values) - 1.96 * SE
+        CI_upper = np.mean(sample_values) + 1.96 * SE
+
+        print(f"\n쿼리 #{query_n}: {sample_values}")
+        print(f"표준편차 SD: {SD:.2f}, 표준 오차 SE: {SE:.2f}")
+        print(f"95% 신뢰 구간: ({CI_lower:.2f} ~ {CI_upper:.2f})")
+
+        confidence_intervals_lower.append(CI_lower)
+        confidence_intervals_upper.append(CI_upper)
+
+        if input("원하는 열의 통계를 보고 싶다면 y를 입력하세요: ").lower() == 'y':
+            col_name = input("통계를 보고 싶은 컬럼명을 입력하세요: ")
+            print_column_statistics(result, col_name)
+            
+        if input("회귀분석을 진행하시겠습니까? (y/n): ").lower() == 'y':
+            col1 = input("첫 번째 컬럼명을 입력하세요: ")
+            col2 = input("두 번째 컬럼명을 입력하세요: ")
+            run_regression_analysis(result, col1, col2)
+
+        if input("상관분석을 진행하시겠습니까? (y/n): ").lower() == 'y':
+            col1 = input("첫 번째 컬럼명을 입력하세요: ")
+            col2 = input("두 번째 컬럼명을 입력하세요: ")
+            method = input("방법을 선택하세요 (pearson/spearman): ").lower()
+            run_correlation_analysis(result, col1, col2, method=method)
+
+        if confidence_intervals_lower and confidence_intervals_upper:
+            plot_confidence_intervals(query_n, [np.mean(np.random.choice(numeric_values, size=5, replace=False))
+                                             for _ in range(query_n)],
+                                  confidence_intervals_lower,
+                                  confidence_intervals_upper)
+
+            
