@@ -7,7 +7,9 @@
     <body>
         <h1>파일 업로드 페이지</h1>
 
-        <form method="post" action="upload" enctype="multipart/form-data">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.as_p }}
             <div>
                 file : <input type="file" name="file" accept="image/*">
             </div><br>
