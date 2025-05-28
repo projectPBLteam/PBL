@@ -1,3 +1,6 @@
+import pandas as pd
+import numpy as np
+
 #결측치 처리
 def handle_missing_values(data):
     df = pd.DataFrame(data[1:], columns=data[0])

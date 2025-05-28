@@ -1,3 +1,4 @@
+import os
 from privacy import laplace_local_differential_privacy
 from statistics_basic import print_column_statistics
 from statistics_advanced import run_regression_analysis, run_correlation_analysis
@@ -16,19 +17,19 @@ def start_user_session():
         charset='utf8'
     )
     curs = conn.cursor()
-    tableN = 1 # 테이블 번호
     epsilon = 1.0
     sensitivity = 1.0
 
     filename = input("읽을 파일의 이름을 입력하세요(확장자명까지): ")
-
-    if filename.endswith(".csv"):
-        input_string = read_csvfile(filename)
-        maketbl(input_string, conn, curs)
-        insert_data(input_string, conn, curs, tableN - 1)
-    else:
+    if not filename.endswith(".csv"):
         print("[오류] CSV 파일만 지원됩니다.")
         return
+
+    input_string = read_csvfile(filename)
+    tablename = "userTable_" + os.path.splitext(os.path.basename(filename))[0]
+
+    maketbl(input_string, conn, curs, tablename)
+    insert_data(input_string, conn, curs, tablename)
 
     query_n = 0
     confidence_intervals_lower = []
@@ -39,7 +40,6 @@ def start_user_session():
         if user_input.lower() == 'q':
             break
 
-        # 쿼리 발생
         query_n += 1
         result = laplace_local_differential_privacy(input_string, epsilon, sensitivity)
 
@@ -50,7 +50,6 @@ def start_user_session():
             print(f"[오류] '{col_name}' 컬럼을 찾을 수 없습니다.")
             continue
 
-        # 숫자 값만 추출
         numeric_values = []
         for row in input_string[1:]:
             try:
@@ -92,9 +91,9 @@ def start_user_session():
             run_correlation_analysis(result, col1, col2, method=method)
 
         if confidence_intervals_lower and confidence_intervals_upper:
-            plot_confidence_intervals(query_n, [np.mean(np.random.choice(numeric_values, size=5, replace=False))
-                                             for _ in range(query_n)],
-                                  confidence_intervals_lower,
-                                  confidence_intervals_upper)
-
-            
+            plot_confidence_intervals(
+                list(range(1, query_n + 1)),
+                [np.mean(np.random.choice(numeric_values, size=5, replace=False)) for _ in range(query_n)],
+                confidence_intervals_lower,
+                confidence_intervals_upper
+            )

@@ -1,17 +1,7 @@
 import numpy as np
 from scipy import stats
+from sklearn.linear_model import LinearRegression
 from visualization import plot_regression_result, plot_correlation_scatter
-
-# 단순 선형 회귀 분석
-def simple_linear_regression(x, y):
-    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
-    return {
-        'slope': slope,
-        'intercept': intercept,
-        'r_squared': r_value ** 2,
-        'p_value': p_value,
-        'std_error': std_err
-    }
 
 # 피어슨 상관 계수
 def pearson_correlation(x, y):
@@ -37,15 +27,26 @@ def run_regression_analysis(data, col1, col2):
         except:
             continue
 
-    x_np = np.array(x)
+    if len(x) < 2:
+        print("[오류] 유효한 데이터가 부족합니다.")
+        return
+
+    x_np = np.array(x).reshape(-1, 1)
     y_np = np.array(y)
-    result = simple_linear_regression(x_np, y_np)
+
+    model = LinearRegression()
+    model.fit(x_np, y_np)
+
+    slope = model.coef_[0]
+    intercept = model.intercept_
+    r_squared = model.score(x_np, y_np)
 
     print("\n[회귀분석 결과]")
-    for k, v in result.items():
-        print(f"{k}: {v:.4f}")
+    print(f"slope: {slope:.4f}")
+    print(f"intercept: {intercept:.4f}")
+    print(f"r_squared: {r_squared:.4f}")
 
-    plot_regression(x_np, y_np, result['slope'], result['intercept'], col1, col2)
+    plot_regression_result(x_np, y_np, model, col1, col2)
 
 # 상관 분석 실행 및 시각화
 def run_correlation_analysis(data, col1, col2, method='pearson'):
@@ -77,3 +78,4 @@ def run_correlation_analysis(data, col1, col2, method='pearson'):
         print(f"{k}: {v:.4f}")
 
     plot_correlation_scatter(x_np, y_np, col1, col2, method.capitalize())
+
