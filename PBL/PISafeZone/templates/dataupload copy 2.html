@@ -6,12 +6,15 @@
     </head>
     <body>
         <h1>데이터 업로드</h1>
-        <a href="" target="_self" class="btn action dataupload">
-            <div class="slot-wrapper">업로드 가능 파일 형식 명시 안내</div>
-            <div class="slot-wrapper">파일 업로드</div>
-        </a>
-        <button type="button" class="btn btn-expand btn-secondary">다음 페이지</button>
 
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <div>
+                file : <input type="file" name="file" accept="image/*">
+            </div><br>
+            <input type="submit" value="업로드">
+        </form>
 
     </body>
 </html>

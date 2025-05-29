@@ -16,7 +16,7 @@ def dataUpload(request):
     # return HttpResponse("Other Page test = " + datainput)
 
 def dataUploadNext(request):
-    return render(request, 'dataupload.html')
+    return render(request, 'dataupload2.html')
 
 def upload_view(request):
     if request.method == 'POST':

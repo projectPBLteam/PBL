@@ -5,5 +5,5 @@ urlpatterns = [
     path("", views.main, name='main'),
     path("fileupload/", views.upload_view),
     path("dataupload/", views.dataUpload),
-    path("datauploadN/", views.dataUploadNext),
+    path("dataupload/page2", views.dataUploadNext),
 ]
