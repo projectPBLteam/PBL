@@ -9,10 +9,14 @@ def main(request):
     #  return HttpResponse("csv 파일을 입력받을 페이지입니다.")
     return render(request, 'main.html')
 
-def otherpage(request):
+def dataUpload(request):
+    return render(request, 'dataupload.html')
     # datainput = request.GET['datainput']
-    datainput = request.POST['datainput']
-    return HttpResponse("Other Page test = " + datainput)
+    # datainput = request.POST['datainput']
+    # return HttpResponse("Other Page test = " + datainput)
+
+def dataUploadNext(request):
+    return render(request, 'dataupload.html')
 
 def upload_view(request):
     if request.method == 'POST':
