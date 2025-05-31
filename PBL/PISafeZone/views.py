@@ -48,3 +48,12 @@ def upload_view(request):
     else:
         form = UploadFileForm()
     return render(request, 'upload_form.html', {'form': form})
+
+def datause(request):
+    return render(request, 'datause.html')
+
+def datause2(request):
+    return render(request, 'datause2.html')
+
+def datause3(request):
+    return render(request, 'datause3.html')
