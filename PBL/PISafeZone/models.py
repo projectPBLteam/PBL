@@ -2,7 +2,7 @@ from django.db import models
 
 # 데이터 모델(테이블)
 class Fileinput(models.Model):
-    기준년월 = models.CharField(max_length=6, default=0)
+    기준년월 = models.CharField(max_length=8, default=0)
     신우편번호 = models.CharField(max_length=5, default=0)
     연령대코드 = models.IntegerField(default=0)
     성별코드 = models.CharField(max_length=1, default=0)
@@ -12,6 +12,9 @@ class Fileinput(models.Model):
     # tableName = models.CharField(max_length=255, primary_key=True)
     # uploadTime = models.CharField(max_length=100)
     # Noise = models.BooleanField(null=True)
+
+    def __str__(self):
+        return self.기준년월
 
 # class tableName(models.Model):
 #     tableName = models.CharField(max_length=255)

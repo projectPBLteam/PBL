@@ -3,7 +3,7 @@ from preprocessing import handle_missing_values, handle_outliers
 
 def laplace_mechanism(value, epsilon, sensitivity):
     scale = sensitivity / epsilon
-    noise = np.random.normal(0, scale)
+    noise = np.random.laplace(0, scale)
     return value + noise
 
 def laplace_local_differential_privacy(input_data, epsilon, sensitivity):
