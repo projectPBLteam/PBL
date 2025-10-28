@@ -130,4 +130,4 @@ def auth_view(request):
 
 def user_logout(request):
     logout(request)
-    return redirect('auth')
+    return redirect('main')
