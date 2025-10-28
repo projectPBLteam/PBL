@@ -3,37 +3,23 @@
     <head>
         <meta charset=""UTF-8>
         <title>데이터 업로드</title>
-        <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     </head>
     <body>
         <h1>데이터 업로드</h1>
         <a href="" target="_self" class="btn action dataupload">
             <div class="slot-wrapper">업로드 가능 파일 형식 명시 안내</div>
         </a>
-
         <a href="" target="_self" class="btn action dataupload">
             <div class="slot-wrapper">파일 업로드</div>
         </a>
-
-        <form method="post" enctype="multipart/form-data" action="/PISafeZone/fileupload/">
+        <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             {{ form.as_p }}
-            <input type="submit" value="업로드">
-        </form>
-
-        {% if messages %}
-            <script>
-            {% for message in messages %}       //실제 오류 아님! (무시)
-                Swal.fire({
-                    title: '알림',
-                    text: '{{ message }}',
-                    // message.tags를 이용해 'success', 'error' 아이콘 자동 설정
-                    icon: '{{ message.tags }}', 
-                    confirmButtonText: '확인'
-                  });
-            {% endfor %}
-              </script>
-        {% endif %}
+            <div>
+                file : <input type="file" name="file" accept="image/*">
+            </div><br>
+                <input type="submit" value="업로드">
+            </form>
 
 
     </body>

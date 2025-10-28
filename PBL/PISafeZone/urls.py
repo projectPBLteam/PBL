@@ -9,4 +9,6 @@ urlpatterns = [
     path("datause", views.datause),
     path("datause/page2", views.datause2),
     path("datause/page3", views.datause3),
+    path('login/', views.auth_view, name='login'),
+    path('logout/', views.user_logout, name='logout'),
 ]
