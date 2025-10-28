@@ -1,23 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 
-# 데이터 모델(테이블)
-class Fileinput(models.Model):
-    기준년월 = models.CharField(max_length=6, default=0)
-    신우편번호 = models.CharField(max_length=5, default=0)
-    연령대코드 = models.IntegerField(default=0)
-    성별코드 = models.CharField(max_length=1, default=0)
-    개인소득구간코드 = models.IntegerField(default=0)
-    가구소득금액 = models.IntegerField(null=True, blank=True)
-    개인소득금액 = models.IntegerField(default=0)
-    # tableName = models.CharField(max_length=255, primary_key=True)
-    # uploadTime = models.CharField(max_length=100)
-    # Noise = models.BooleanField(null=True)
-
-# class tableName(models.Model):
-#     tableName = models.CharField(max_length=255)
-#     uploadTime = models.CharField(max_length=100)
-#     Noise = models.BooleanField()
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -39,13 +22,22 @@ class CustomUserManager(BaseUserManager):
     #    return self.create_user(email, password, **extra_fields)
 
 class CustomUser(AbstractUser):
+    user_id = models.AutoField(primary_key=True)
     username = None  # 기본 username 필드 제거
     email = models.EmailField(unique=True)  # 이메일을 고유 식별자로
-
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = []  # username, first_name 등 필요 없음
 
     objects = CustomUserManager()
+    REQUIRED_FIELDS = []
 
     def __str__(self):
         return self.email
+    
+# 데이터 모델(테이블)
+class file_DB(models.Model):
+    data_id = models.AutoField(primary_key=True)
+    data_name = models.CharField(max_length=100)
+    user_id = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    data_date = models.DateField(auto_now_add=True)
+    def __str__(self):
+        return self.data_id

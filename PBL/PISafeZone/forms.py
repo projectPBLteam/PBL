@@ -45,4 +45,4 @@ class RegisterForm(UserCreationForm):
 
 
 class UploadFileForm(forms.Form):
-    file = forms.FileField()
+    file = forms.FileField(label='파일선택', widget=forms.ClearableFileInput(attrs={'accept': 'text/csv, .csv'}))
