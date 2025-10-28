@@ -3,6 +3,8 @@ from django.http import HttpResponse
 from .forms import UploadFileForm
 from django.db import connection    #DB 커서 접근용
 import re   #파일 이름 정제용
+from django.contrib import messages
+from .models import file_DB, User
 
 # data_utils 모듈 임포트
 from .data_utils import read_csvfile, maketbl, insert_data
@@ -51,19 +53,36 @@ def upload_view(request):
                     # 데이터 삽입
                     insert_data(csv_data, cursor, table_name)
                 
+                # try: 
+                #     #file_DB에 관련 데이터 INSERT
+                #     file_record = file_DB(
+                #         data_name = table_name,
+                #         # 아직 회원가입과 미연동으로 임의 설정
+                #         user = temp_user
+                #         # user = request.user
+                #     )
+                #     file_record.save()  # 데이터 베이스에 INSERT
+                # except Exception as e:
+                #     raise Exception(f"메타데이터 저장 실패: {e}")
+
                 #모든 DB 작업 성공시 자동으로 커밋
-                return render(request, 'upload_success.html')
+                messages.success(request, "파일이 업로드 되었습니다.")
+                return render(request, 'dataupload2.html')
+            
             except Exception as e:
                 # DB 오류, SQL 구문 오류, 데이터 불일치 오류 등
                 print("==================================================")
                 print(f"오류: {e}")
                 print("==================================================")
-                return HttpResponse(f"동적 DB 처리 중 알 수 없는 오류가 발생했습니다. 상세: {e}")
+                messages.error(request, f"동적 DB 처리 중 알 수 없는 오류가 발생했습니다. 상세: {e}")
+                form = UploadFileForm() 
+                return render(request, 'dataupload2.html', {'form': form})
         else:
-            return HttpResponse("폼이 유효하지 않습니다.")
+            messages.error(request, f"폼이 유효하지 않습니다.")
+            return render(request, 'dataupload2.html', {'form': form})
     else:
         form = UploadFileForm()
-    return render(request, 'upload_form.html', {'form':form})
+    return render(request, 'dataupload2.html', {'form':form})
 
 
 def datause(request):
