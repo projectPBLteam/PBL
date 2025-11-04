@@ -1,5 +1,7 @@
 from django.contrib import admin
-from PISafeZone.models import file_DB
+from .models import CustomUser, Data, UsageHistory
 
 # Register your models here.
-admin.site.register(file_DB)
+admin.site.register(CustomUser)
+admin.site.register(Data)
+admin.site.register(UsageHistory)

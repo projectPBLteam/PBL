@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate, login, logout
 from .forms import EmailLoginForm, RegisterForm
 import re   #파일 이름 정제용
 from django.contrib import messages
-from .models import file_DB, CustomUser
+from .models import Data, UsageHistory, CustomUser
 
 # data_utils 모듈 임포트
 from .data_utils import read_csvfile, maketbl, insert_data
@@ -45,6 +45,8 @@ def upload_view(request):
         if form.is_valid():
             uploaded_file = form.cleaned_data['file']
             original_filename = uploaded_file.name
+            
+            # 💡 [중요] 이 코드가 반드시 있어야 합니다.
             table_name = _sanitize_table_name(original_filename)
 
             # DB 커서 설정
@@ -60,17 +62,21 @@ def upload_view(request):
 
                     # 데이터 삽입
                     insert_data(csv_data, cursor, table_name)
-                # try: 
-                #     #file_DB에 관련 데이터 INSERT
-                #     file_record = file_DB(
-                #         data_name = table_name,
-                #         # 아직 회원가입과 미연동으로 임의 설정
-                #         user = temp_user
-                #         # user = request.user
-                #     )
-                #     file_record.save()  # 데이터 베이스에 INSERT
-                # except Exception as e:
-                #     raise Exception(f"메타데이터 저장 실패: {e}")
+                
+                # 💡 [수정] 올바른 모델 필드 이름 ('user', 'data')을 사용합니다.
+                
+                # 업로드 메타데이터 저장 (ERD: Data)
+                data_obj = Data.objects.create(
+                    data_name=table_name,
+                    user=request.user   #'user_id' -> 'user'
+                )
+                
+                # 이용 내역 기록 (register)
+                UsageHistory.objects.create(
+                    usage_type="register",
+                    user=request.user,  #'user_id' -> 'user'
+                    data=data_obj       #'data_id' -> 'data'
+                )
 
                 #모든 DB 작업 성공시 자동으로 커밋
                 messages.success(request, "파일이 업로드 되었습니다.")
@@ -84,18 +90,23 @@ def upload_view(request):
                 messages.error(request, f"동적 DB 처리 중 알 수 없는 오류가 발생했습니다. 상세: {e}")
                 form = UploadFileForm() 
                 return render(request, 'dataupload2.html', {'form': form})
+    
         else:
             messages.error(request, f"폼이 유효하지 않습니다.")
+            form = UploadFileForm(request.POST, request.FILES) # 폼을 다시 전달
             return render(request, 'dataupload2.html', {'form': form})
-    else:
+    
+    else: # GET 요청
         form = UploadFileForm()
     return render(request, 'dataupload2.html', {'form':form})
+
 
 def datause(request):
     return render(request, 'datause.html')
 
 def datause2(request):
-    return render(request, 'datause2.html')
+    files = Data.objects.all().select_related('user').order_by('-data_date')
+    return render(request, 'datause2.html', { 'files': files })
 
 def datause3(request):
     return render(request, 'datause3.html')

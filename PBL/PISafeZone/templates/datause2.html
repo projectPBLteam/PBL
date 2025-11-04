@@ -5,12 +5,50 @@
         <title>데이터 이용</title>
     </head>
     <body>
-        <h1>데이터 이용</h1>
+        <h1>데이터 목록</h1>
 
         <a href="" target="_self" class="btn action dataupload">
             <div class="slot-wrapper">카테고리별 데이터 목록</div>
         </a>
-        <button type="button" class="btn btn-expand btn-secondary" onclick="location.href='/PISafeZone/datause/page3'">다음 페이지</button>
+        
+        <h2>업로드된 파일 목록</h2>
+        {% if files %}
+        <form method="get" action="/PISafeZone/datause/page3">
+        <table border="1" cellpadding="6" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>선택</th>
+                    <th>데이터명</th>
+                    <th>데이터 제공자</th>
+                    <th>데이터 업로드 날짜</th>
+                    <th>데이터 이용수</th>
+                    <th>데이터 상세 보기</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in files %}
+                <tr>
+                    <td>
+                        <input type="radio" name="data" value="{{ f.data_id }}">
+                    </td>
+                    <td>{{ f.data_name }}</td>
+                    <td>{{ f.user.first_name|default:f.user.email }}</td>
+                    <td>{{ f.data_date|date:"Y.m.d" }}</td>
+                    <td>{{ f.data_usage }}</td>
+                    <td>
+                        <button type="button" onclick="location.href='/PISafeZone/datause/page3?data={{ f.data_id }}'">상세 정보</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div style="margin-top:16px; text-align:right;">
+            <button type="submit">데이터 분석</button>
+        </div>
+        </form>
+        {% else %}
+            <p>표시할 파일이 없습니다.</p>
+        {% endif %}
 
     </body>
 </html>
