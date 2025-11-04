@@ -82,6 +82,12 @@ def upload_view(request):
                 messages.success(request, "파일이 업로드 되었습니다.")
                 return redirect('dataUploadNext')
             
+            except ValueError as e:
+                # maketbl 이나 read_csvfile에서 발생한 명확한 오류를 그대로 사용자에게 보여줌
+                messages.error(request, e)
+                form = UploadFileForm() 
+                return render(request, 'dataupload2.html', {'form': form})
+            
             except Exception as e:
                 # DB 오류, SQL 구문 오류, 데이터 불일치 오류 등
                 print("==================================================")
