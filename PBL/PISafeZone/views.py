@@ -12,6 +12,8 @@ from .models import Data, UsageHistory, CustomUser
 
 # data_utils 모듈 임포트
 from .data_utils import read_csvfile, maketbl, insert_data
+from modules.preprocessing import handle_missing_values, handle_outliers
+from modules.statistics_basic import calculate_mean, calculate_median, calculate_mode
 
 # 파일 이름을 DB 테이블 이름으로 사용할 수 있도록 정제하는 헬퍼 함수
 def _sanitize_table_name(filename):
@@ -46,7 +48,7 @@ def upload_view(request):
             uploaded_file = form.cleaned_data['file']
             original_filename = uploaded_file.name
             
-            # 💡 [중요] 이 코드가 반드시 있어야 합니다.
+            # [중요] 이 코드가 반드시 있어야 합니다.
             table_name = _sanitize_table_name(original_filename)
 
             # DB 커서 설정
@@ -114,8 +116,78 @@ def datause2(request):
     files = Data.objects.all().select_related('user').order_by('-data_date')
     return render(request, 'datause2.html', { 'files': files })
 
+def _load_dynamic_table_as_list(table_name):
+    """동적으로 생성된 테이블을 [columns] + rows 형태의 리스트로 반환"""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+            ORDER BY ORDINAL_POSITION
+            """,
+            [table_name],
+        )
+        columns = [r[0] for r in cursor.fetchall()]
+        if not columns:
+            return [[], []]
+        cursor.execute(f"SELECT `{ '`, `'.join(columns) }` FROM `{table_name}`")
+        rows = cursor.fetchall()
+    return [columns] + [list(r) for r in rows]
+
 def datause3(request):
-    return render(request, 'datause3.html')
+    data_id = request.GET.get('data')
+    stat = request.GET.get('stat')
+    selected_col = request.GET.get('col')
+
+    result_text = None
+    columns = []
+
+    if data_id:
+        try:
+            data_obj = Data.objects.get(pk=data_id)
+            raw = _load_dynamic_table_as_list(data_obj.data_name)
+            # 전처리
+            pre1 = handle_missing_values(raw)
+            processed = handle_outliers(pre1)
+            columns = processed[0]
+
+            # 기본 선택값 보정
+            if columns and (selected_col is None or selected_col not in columns):
+                selected_col = columns[0]
+
+            # 통계 계산
+            if stat and selected_col:
+                col_idx = columns.index(selected_col)
+                numeric_values = []
+                for row in processed[1:]:
+                    try:
+                        numeric_values.append(float(row[col_idx]))
+                    except Exception:
+                        continue
+                if numeric_values:
+                    if stat == 'mean':
+                        value = calculate_mean(numeric_values)
+                        result_text = f"평균({selected_col}) = {value:.4f}"
+                    elif stat == 'median':
+                        value = calculate_median(numeric_values)
+                        result_text = f"중앙값({selected_col}) = {value:.4f}"
+                    elif stat == 'mode':
+                        modes = calculate_mode(numeric_values)
+                        result_text = f"최빈값({selected_col}) = {list(modes)}"
+                else:
+                    result_text = f"선택한 컬럼 '{selected_col}'에서 숫자 데이터를 찾을 수 없습니다."
+        except Data.DoesNotExist:
+            result_text = "선택한 데이터가 존재하지 않습니다."
+        except Exception as e:
+            result_text = f"처리 중 오류: {e}"
+
+    ctx = {
+        'result': result_text,
+        'columns': columns,
+        'selected_col': selected_col,
+    }
+    return render(request, 'datause3.html', ctx)
 
 def auth_view(request):
     login_form = EmailLoginForm(request, data=request.POST or None)

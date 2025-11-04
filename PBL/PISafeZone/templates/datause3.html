@@ -7,18 +7,39 @@
     <body>
         <h1>데이터 이용</h1>
 
-        <a href="" target="_self" class="btn action dataupload">
-            <div class="slot-wrapper">원하는 통계처리 선택</div>
-        </a>
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <input type="submit" value="확인">
-        </form>
+        <div style="display:flex; gap:16px; align-items:flex-start;">
+            <div style="width:260px; border:1px solid #ccc; border-radius:6px; padding:10px;">
+                <h3>상세 선택</h3>
+                <form method="get" action="">
+                    <div style="display:flex; flex-direction:column; gap:8px; height:260px; overflow:auto;">
+                        <label><input type="radio" name="stat" value="mean" {% if request.GET.stat == 'mean' %}checked{% endif %}> 평균</label>
+                        <label><input type="radio" name="stat" value="median" {% if request.GET.stat == 'median' %}checked{% endif %}> 중앙값</label>
+                        <label><input type="radio" name="stat" value="mode" {% if request.GET.stat == 'mode' %}checked{% endif %}> 최빈값</label>
+                        <div style="margin-top:8px;">
+                            <label>대상 컬럼</label>
+                            <select name="col" style="width:100%;">
+                                {% for c in columns %}
+                                    <option value="{{ c }}" {% if selected_col == c %}selected{% endif %}>{{ c }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <input type="hidden" name="data" value="{{ request.GET.data }}">
+                    </div>
+                    <div style="margin-top:12px; text-align:right;">
+                        <button type="submit">확인</button>
+                    </div>
+                </form>
+            </div>
 
-        <a href="" target="_self" class="btn action dataupload">
-            <div class="slot-wrapper">통계처리 결과 및 시각화</div>
-        </a>
+            <div style="flex:1; border:1px solid #ccc; border-radius:6px; padding:10px; min-height:260px;">
+                <h3>통계 처리 결과</h3>
+                <div style="white-space:pre-wrap; min-height:200px;">{{ result|default:"데이터 분석 결과입니다." }}</div>
+            </div>
+        </div>
+
+        <div style="margin-top:20px; text-align:right;">
+            <button type="button" onclick="history.back()">결과 반출</button>
+        </div>
 
     </body>
 </html>
