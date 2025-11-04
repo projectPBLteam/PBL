@@ -10,14 +10,14 @@ import numpy as np
 def start_user_session():
     # DB 연결
     conn = pymysql.connect(
-        host='localhost',
-        user='code',
-        password='Ab123456',
-        db='privacy_db',
+        host='%',
+        user='ddu',
+        password='mickey423212',
+        db='MyLocalDB',
         charset='utf8'
     )
     curs = conn.cursor()
-    epsilon = 1.0
+    epsilon = 0.5
     sensitivity = 1.0
 
     filename = input("읽을 파일의 이름을 입력하세요(확장자명까지): ")
