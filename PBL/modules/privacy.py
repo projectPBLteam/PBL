@@ -1,5 +1,5 @@
 import numpy as np
-from preprocessing import handle_missing_values, handle_outliers
+from .preprocessing import handle_missing_values, handle_outliers
 
 def laplace_mechanism(value, epsilon, sensitivity):
     scale = sensitivity / epsilon

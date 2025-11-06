@@ -10,10 +10,11 @@ import re   #파일 이름 정제용
 from django.contrib import messages
 from .models import Data, UsageHistory, CustomUser
 
-# data_utils 모듈 임포트
-from .data_utils import read_csvfile, maketbl, insert_data
-from modules.preprocessing import handle_missing_values, handle_outliers
+# 모듈 임포트
+from modules.data_utils import read_csvfile, maketbl, insert_data
+from modules.privacy import laplace_local_differential_privacy
 from modules.statistics_basic import calculate_mean, calculate_median, calculate_mode
+
 
 # 파일 이름을 DB 테이블 이름으로 사용할 수 있도록 정제하는 헬퍼 함수
 def _sanitize_table_name(filename):
@@ -30,12 +31,14 @@ def main(request):
     #  return HttpResponse("csv 파일을 입력받을 페이지입니다.")
     return render(request, 'main.html')
 
+@login_required
 def dataUpload(request):
     return render(request, 'dataupload.html')
     # datainput = request.GET['datainput']
     # datainput = request.POST['datainput']
     # return HttpResponse("Other Page test = " + datainput)
 
+@login_required
 def dataUploadNext(request):
     form = UploadFileForm()
     return render(request, 'dataupload2.html',  {'form':form})
@@ -48,7 +51,6 @@ def upload_view(request):
             uploaded_file = form.cleaned_data['file']
             original_filename = uploaded_file.name
             
-            # [중요] 이 코드가 반드시 있어야 합니다.
             table_name = _sanitize_table_name(original_filename)
 
             # DB 커서 설정
@@ -61,11 +63,8 @@ def upload_view(request):
                 #테이블 생성
                 with conn.cursor() as cursor:
                     maketbl(csv_data, cursor, table_name)
-
                     # 데이터 삽입
                     insert_data(csv_data, cursor, table_name)
-                
-                # 💡 [수정] 올바른 모델 필드 이름 ('user', 'data')을 사용합니다.
                 
                 # 업로드 메타데이터 저장 (ERD: Data)
                 data_obj = Data.objects.create(
@@ -108,10 +107,11 @@ def upload_view(request):
         form = UploadFileForm()
     return render(request, 'dataupload2.html', {'form':form})
 
-
+@login_required
 def datause(request):
     return render(request, 'datause.html')
 
+@login_required
 def datause2(request):
     files = Data.objects.all().select_related('user').order_by('-data_date')
     return render(request, 'datause2.html', { 'files': files })
@@ -135,6 +135,9 @@ def _load_dynamic_table_as_list(table_name):
         rows = cursor.fetchall()
     return [columns] + [list(r) for r in rows]
 
+
+
+@login_required
 def datause3(request):
     data_id = request.GET.get('data')
     stat = request.GET.get('stat')
@@ -147,10 +150,13 @@ def datause3(request):
         try:
             data_obj = Data.objects.get(pk=data_id)
             raw = _load_dynamic_table_as_list(data_obj.data_name)
-            # 전처리
-            pre1 = handle_missing_values(raw)
-            processed = handle_outliers(pre1)
-            columns = processed[0]
+
+            # 노이즈 추가
+            # 임시(값에 따라 자동으로 선택되도록 수정해야함)
+            epsilon = 0.5
+            sensitivity = 1.0
+            privacy = laplace_local_differential_privacy(raw, epsilon, sensitivity)
+            columns = privacy[0]
 
             # 기본 선택값 보정
             if columns and (selected_col is None or selected_col not in columns):
@@ -160,7 +166,7 @@ def datause3(request):
             if stat and selected_col:
                 col_idx = columns.index(selected_col)
                 numeric_values = []
-                for row in processed[1:]:
+                for row in privacy[1:]:
                     try:
                         numeric_values.append(float(row[col_idx]))
                     except Exception:
@@ -188,6 +194,7 @@ def datause3(request):
         'selected_col': selected_col,
     }
     return render(request, 'datause3.html', ctx)
+
 
 def auth_view(request):
     login_form = EmailLoginForm(request, data=request.POST or None)
