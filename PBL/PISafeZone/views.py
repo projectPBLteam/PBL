@@ -31,9 +31,13 @@ def main(request):
     #  return HttpResponse("csv 파일을 입력받을 페이지입니다.")
     return render(request, 'main.html')
 
+def info_hub(request):
+    return render(request, 'info_hub.html')
+
 @login_required
 def dataUpload(request):
-    return render(request, 'dataupload.html')
+    # 업로드 첫 페이지는 사용하지 않고 바로 page2로 이동
+    return redirect('dataUploadNext')
     # datainput = request.GET['datainput']
     # datainput = request.POST['datainput']
     # return HttpResponse("Other Page test = " + datainput)
@@ -109,7 +113,8 @@ def upload_view(request):
 
 @login_required
 def datause(request):
-    return render(request, 'datause.html')
+    # 중간 페이지 없이 바로 목록 페이지로 이동
+    return redirect('datause2')
 
 @login_required
 def datause2(request):
