@@ -63,15 +63,20 @@ def print_column_statistics(data, column_name):
 
     numeric_values = []
     for row in data[1:]:
+        val = row[col_idx]
+        if val is None or val == '' or str(val).strip().lower() in ['nan', 'none']:
+            continue  # 결측치 무시
         try:
-            num = float(row[col_idx])
+            num = float(val)
             numeric_values.append(num)
-        except:
+        except ValueError:
             continue
 
     if not numeric_values:
         print(f"[알림] '{column_name}' 컬럼에 숫자 데이터가 없습니다.")
         return
+    
+    numeric_values = np.array(numeric_values, dtype=float)
 
     print(f"\n'{column_name}' 컬럼의 통계 정보:")
     print(f" 표본평균 (sample mean): {calculate_mean(np.random.choice(numeric_values, len(numeric_values)//5)):.3f}")

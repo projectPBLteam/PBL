@@ -19,9 +19,9 @@ def relative_ci_width(data, confidence=0.95):
     return width / abs(mean) if mean != 0 else np.inf
 
 # 수렴 판단 함수 (적응형 threshold)
-def find_convergence(values, window_size, threshold, streak_required=5):
+def find_convergence(values, window_size=5, threshold=0.05, streak_required=5):
     streak = 0
-    for i in range(len(values) - window_size):
+    for i in range(len(values) - window_size + 1):
         window = values[i:i + window_size]
         rel_width = relative_ci_width(window)
         if rel_width < threshold:
@@ -38,19 +38,18 @@ def FindQueryN(raw, n, epsilon, sensitivity):
     threshold = max(0.01, min(0.1, sensitivity / np.mean(raw)))
     streak_required = 5
     convergence_list = []
-    dp_vals_all = []
 
-    for i in range(20):
-        seed = None  # 시스템 랜덤 시드 사용 → 매번 다르게
-        privacy = laplace_local_differential_privacy(raw, epsilon, sensitivity)
-        conv = find_convergence(privacy, window_size, threshold, streak_required)
+    for _ in range(20):
+        # 1차원 리스트 반환
+        noisy_values = laplace_local_differential_privacy(raw, epsilon, sensitivity)
+        conv = find_convergence(noisy_values, window_size, threshold, streak_required)
         convergence_list.append(conv)
-        dp_vals_all.append(privacy)
-    
 
-    # 수렴 결과
+    # 수렴 결과 유효값만 사용
     valid_convs = [x for x in convergence_list if x is not None]
-    # 평균 수렴 시점
+    if not valid_convs:
+        return 1  # 수렴하지 않으면 최소 1회
+    # 평균 수렴 시점 반환
     N = int(np.mean(valid_convs))
     return N
 
