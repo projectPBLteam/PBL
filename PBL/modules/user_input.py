@@ -1,11 +1,60 @@
 import os
-from privacy import laplace_local_differential_privacy
-from statistics_basic import print_column_statistics
-from statistics_advanced import run_regression_analysis, run_correlation_analysis
-from visualization import plot_confidence_intervals
-from io_utils import read_csvfile, maketbl, insert_data
+from scipy import stats
+from .privacy import laplace_local_differential_privacy
+from .statistics_basic import print_column_statistics
+from .statistics_advanced import run_regression_analysis, run_correlation_analysis
+from .visualization import plot_confidence_intervals
+from .data_utils import read_csvfile, maketbl, insert_data
 import pymysql
 import numpy as np
+
+# 상대 신뢰구간 길이 계산 함수
+def relative_ci_width(data, confidence=0.95):
+    if len(data) < 2:
+        return np.inf
+    mean = np.mean(data)
+    sem = stats.sem(data)
+    margin = sem * stats.t.ppf((1 + confidence) / 2., len(data) - 1)
+    width = 2 * margin
+    return width / abs(mean) if mean != 0 else np.inf
+
+# 수렴 판단 함수 (적응형 threshold)
+def find_convergence(values, window_size, threshold, streak_required=5):
+    streak = 0
+    for i in range(len(values) - window_size):
+        window = values[i:i + window_size]
+        rel_width = relative_ci_width(window)
+        if rel_width < threshold:
+            streak += 1
+            if streak >= streak_required:
+                return i + window_size
+        else:
+            streak = 0
+    return None
+
+def FindQueryN(raw, n, epsilon, sensitivity):
+    # 신뢰구간 제한 쿼리 수 계산
+    window_size = int(max(20, min(100, n * 0.003)))
+    threshold = max(0.01, min(0.1, sensitivity / np.mean(raw)))
+    streak_required = 5
+    convergence_list = []
+    dp_vals_all = []
+
+    for i in range(20):
+        seed = None  # 시스템 랜덤 시드 사용 → 매번 다르게
+        privacy = laplace_local_differential_privacy(raw, epsilon, sensitivity)
+        conv = find_convergence(privacy, window_size, threshold, streak_required)
+        convergence_list.append(conv)
+        dp_vals_all.append(privacy)
+    
+
+    # 수렴 결과
+    valid_convs = [x for x in convergence_list if x is not None]
+    # 평균 수렴 시점
+    N = int(np.mean(valid_convs))
+    return N
+
+        
 
 def start_user_session():
     # DB 연결

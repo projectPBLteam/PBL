@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import stats
 from sklearn.linear_model import LinearRegression
-from visualization import plot_regression_result, plot_correlation_scatter
+from .visualization import plot_regression_result, plot_correlation_scatter
 
 # 피어슨 상관 계수
 def pearson_correlation(x, y):
