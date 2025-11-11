@@ -1,0 +1,208 @@
+.data-select-screen {
+    align-items: center;
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 100vh;
+    padding: 10px;
+    position: relative;
+    width: 100vw;
+    box-sizing: border-box;
+}
+
+.data-select-screen .component-148-wrapper {
+    align-items: flex-start;
+    align-self: stretch;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 10px;
+    position: relative;
+    width: 100%;
+}
+
+.data-select-screen .component-148-instance {
+    display: unset !important;
+    left: unset !important;
+    top: unset !important;
+}
+
+.data-select-screen .component-148-2 {
+    height: 100% !important;
+    left: unset !important;
+    position: unset !important;
+    top: unset !important;
+    width: 100% !important;
+}
+
+
+.data-select-screen .text-wrapper-3 {
+    align-self: stretch;
+    color: #000000;
+    font-family: "Pretendard", Helvetica;
+    font-size: 45px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: normal;
+    position: relative;
+    text-align: center;
+    padding: 10px;
+}
+
+.data-select-screen .text-wrapper-4 {
+    align-self: stretch;
+    color: #000000;
+    font-family: "Pretendard", Helvetica;
+    font-size: 25px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: normal;
+    position: relative;
+    text-align: center;
+}
+
+.data-select-screen .div-wrapper-2 {
+    
+    position: relative;
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.data-select-screen .div-wrapper-3 {
+    align-items: center;
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+    .data-select-screen .div-wrapper-3 {
+        gap: 128px;
+        padding: 30px 40px;
+    }
+}
+
+.data-select-screen .table-wrapper {
+    align-items: flex-start;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    width: 70vw;
+    box-sizing: border-box;
+    overflow-x: auto;
+}
+
+.data-select-screen .table {
+    align-items: flex-start;
+    align-self: stretch;
+    background-color: #ffffff;
+    border: 1.5px solid;
+    border-color: #b9b9b9;
+    border-radius: 4px;
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+
+/* 테이블 행 */
+.data-select-screen .row-instance {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* 컬럼별 flex 설정 */
+.data-select-screen .row-instance > div {
+    flex: 1;           /* 기본적으로 동일 비율로 늘어남 */
+    min-width: 80px;   /* 최소 폭 설정, 내용이 길어도 최소 폭 보장 */
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 첫 번째 컬럼 (선택 radio) 좁게 */
+.data-select-screen .row-instance > div:first-child {
+    width: 10px;   /* 고정폭 */
+}
+
+/* 마지막 컬럼 (상세보기 버튼) */
+.data-select-screen .row-instance > div:last-child {
+    flex: 0 0 100px;  /* 고정폭 */
+    color: #0246cd;
+    cursor: pointer;
+}
+
+/* 헤더 행 */
+.data-select-screen .row-instance.header > div {
+    font-weight: bold;
+    
+}
+
+/* 선택 컬럼 (라디오 버튼) */
+.data-select-screen .cell-select {
+    width: 10px; /* 고정 너비 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 나머지 컬럼 */
+.data-select-screen .cell-flex {
+    flex: 1; /* 남은 공간을 유동적으로 차지 */
+    text-align: center;
+}
+
+/* 헤더 강조 */
+.data-select-screen .row-instance.header {
+    border-bottom: 2px solid #0246cd;
+    font-weight: bold;
+}
+
+/* 데이터가 없을 때 */
+.data-select-screen .no-data {
+    font-size: 24px;
+    color: #999999;
+    margin: 30px 0;
+    text-align: center;
+}
+
+.data-select-screen .component-153-wrapper {
+    align-items: left;
+    align-self: stretch;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 128px;
+    justify-content: flex-end;
+    
+    position: relative;
+    width: 84vw;
+}
+
+.data-select-screen .component-153-instance {
+    height: 62px !important;
+    left: unset !important;
+    top: unset !important;
+    width: 10vw !important;
+    min-width: 150px !important;
+    padding: 10px 30px !important;
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-size: 20px !important;
+    color: #ffffff !important;
+    background-color: #0246cd !important;
+}
+
+.data-select-screen .component-153-instance:hover {
+    background-color: #0035a0 !important;
+}

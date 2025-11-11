@@ -1,0 +1,267 @@
+.data-analysis-screen {
+    align-items: flex-start;
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 100vh;
+    padding: 10px;
+    position: relative;
+    width: 100vw;
+    box-sizing: border-box;
+}
+
+.data-analysis-screen .component-66-wrapper {
+    align-items: flex-start;
+    align-self: stretch;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 10px;
+    position: relative;
+    width: 100%;
+}
+
+.data-analysis-screen .component-66-instance {
+    display: unset !important;
+    left: unset !important;
+    top: unset !important;
+}
+
+.data-analysis-screen .design-component-instance-node {
+    height: 100% !important;
+    left: unset !important;
+    position: unset !important;
+    top: unset !important;
+    width: 100% !important;
+}
+
+.data-analysis-screen .text-wrapper-4 {
+    align-self: stretch;
+    color: #000000;
+    font-family: "Pretendard", Helvetica;
+    font-size: 45px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: normal;
+    position: relative;
+    text-align: center;
+}
+
+.data-analysis-screen .div-2 {
+    align-items: flex-start;
+    align-self: stretch;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 30px;
+    padding: 10px 200px;
+    position: relative;
+    width: 100%;
+    height: auto;
+}
+
+.data-analysis-screen .div-3 {
+    align-items: flex-start;
+    align-self: stretch;
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0px;
+    position: relative;
+}
+
+.data-analysis-screen .text-wrapper-5 {
+    align-items: center;
+    align-self: stretch;
+    color: #000000;
+    display: flex;
+    font-family: "Pretendard", Helvetica;
+    font-size: 25px;
+    font-weight: 400;
+    justify-content: center;
+    letter-spacing: 0;
+    line-height: normal;
+    margin-top: -1.00px;
+    position: relative;
+    text-align: center;
+}
+
+.data-analysis-screen .div-4 {
+    align-items: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 345px;
+    padding: 10px 0px;
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+}
+
+.data-analysis-screen .component-2 {
+    background-color: unset !important;
+    border: 1px solid !important;
+    border-color: #000000 !important;
+    border-radius: 15px !important;
+    min-height: 426px !important;
+    position: relative !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.data-analysis-screen .component-instance {
+    height: 18.08% !important;
+    width: 0 !important;
+}
+
+.data-analysis-screen .view {
+    align-self: stretch !important;
+    display: flex !important;
+    flex: 0 0 auto !important;
+    left: unset !important;
+    top: unset !important;
+    width: 100% !important;
+}
+
+.data-analysis-screen .component-68 {
+    background-image: url(./rectangle-4-2.svg) !important;
+}
+
+.data-analysis-screen .component-69-wrapper {
+    align-items: flex-end;
+    align-self: stretch;
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 10px;
+    justify-content: center;
+    padding: 10px 0px;
+    position: relative;
+    width: 100%;
+}
+
+.data-analysis-screen .component-69-instance-component-69-2 {
+    left: unset !important;
+    top: unset !important;
+    width: auto !important;
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-size: 15px !important;
+    color: #ffffff !important;
+    background-color: #0246cd !important;
+}
+
+.data-analysis-screen .component-69-instance {
+    height: 46px !important;
+    left: unset !important;
+    top: unset !important;
+    width: 111px !important;
+}
+
+.data-analysis-screen .component-69-2 {
+    font-size: 20px !important;
+    white-space: unset !important;
+}
+
+.data-analysis-screen .div-5 {
+    align-items: flex-start;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    flex-grow: 1;
+    gap: 10px;
+    min-height: 400px;
+    padding: 0px 50px;
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.data-analysis-screen .text-wrapper-6 {
+    align-self: left;
+    color: #000000;
+    font-family: "Pretendard", Helvetica;
+    font-size: 25px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: normal;
+    margin-top: -1.00px;
+    position: relative;
+    text-align: center;
+    padding: 0px 10px;
+}
+
+.data-analysis-screen .div-6 {
+    min-height: 400px;
+    margin-bottom: -10.00px;
+    margin-right: -2.00px;
+    position: relative;
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.data-analysis-screen .rectangle {
+    border: 1px solid;
+    border-color: #000000;
+    border-radius: 15px;
+    height: 100%;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 99.79%;
+}
+
+.data-analysis-screen .text-wrapper-7 {
+    color: #000000;
+    font-family: "Pretendard", Helvetica;
+    font-size: 17px;
+    font-weight: 400;
+    height: 7.53%;
+    left: 0;
+    letter-spacing: 0;
+    line-height: normal;
+    position: absolute;
+    top: 3.28%;
+    width: 96.35%;
+    padding: 10px 20px;
+}
+
+.data-analysis-screen .view-wrapper {
+    align-items: center;
+    align-self: stretch;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 128px;
+    justify-content: flex-end;
+    padding: 0px 50px;
+    position: relative;
+    width: 86vw;
+}
+
+.data-analysis-screen .view-2-view-3 {
+    height: 62px !important;
+    left: unset !important;
+    top: unset !important;
+    width: 10vw !important;
+    min-width: 150px !important;
+    padding: 10px 30px !important;
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-size: 20px !important;
+    color: #ffffff !important;
+    background-color: #0246cd !important;
+}
+
+.data-analysis-screen .view-2 {
+    height: 70px !important;
+    left: unset !important;
+    top: unset !important;
+    width: auto !important;
+    min-width: 200px !important;
+    padding: 0 30px !important;
+}
+
+.data-analysis-screen .view-3 {
+    font-size: 20px !important;
+    white-space: unset !important;
+}

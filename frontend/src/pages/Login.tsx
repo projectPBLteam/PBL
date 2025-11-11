@@ -1,10 +1,15 @@
 import './login.css'
+import { useNavigate } from 'react-router-dom'
+
 
 // Figma 자동 코드 구조를 반영한 정적 UI
 export default function Login() {
+  const navigate = useNavigate()
+  const handleLogin = () => {
+    navigate('/main')
+  }
   return (
-    <div className="screen">
-
+    <div className="login-screen">
       <div className="div-wrapper-2">
         <p className="p">
           <span className="span">차분 프라이버시 기반의<br /></span>
@@ -22,7 +27,7 @@ export default function Login() {
           </div>
 
           <div className="component-54-wrapper">
-            <button className="component-54">로그인</button>
+            <button className="component-54" onClick={handleLogin} >로그인</button>
           </div>
 
           <div className="component-54-instance-wrapper">

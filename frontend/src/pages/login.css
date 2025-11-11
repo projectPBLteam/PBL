@@ -1,4 +1,4 @@
-.screen {
+.login-screen {
     align-items: center;
     background-color: #ffffff;
     display: flex;
@@ -12,7 +12,7 @@
     min-height: 100vh;
 }
 
-.screen .view-wrapper {
+.login-screen .login-view-wrapper {
     align-items: flex-start;
     align-self: stretch;
     display: flex;
@@ -22,13 +22,23 @@
     width: 100%;
 }
 
-.screen .view {
+.login-screen .view-wrapper {
+    align-items: flex-start;
+    align-self: stretch;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 10px;
+    position: relative;
+    width: 100%;
+}
+
+.login-screen .view {
     height: 91px;
     position: relative;
     width: 111px;
 }
 
-.screen .div-wrapper-2 {
+.login-screen .div-wrapper-2 {
     align-items: center;
     align-self: stretch;
     display: flex;
@@ -40,7 +50,7 @@
     width: 100%;
 }
 
-.screen .p {
+.login-screen .p {
     color: #000000;
     flex: 1;
     font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -53,7 +63,7 @@
     text-align: center;
 }
 
-.screen .span {
+.login-screen .span {
     color: #000000;
     font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     font-size: 40px;
@@ -62,13 +72,13 @@
     display: block;
 }
 
-.screen .text-wrapper-2 {
-    font-size: 64px;
+.login-screen .text-wrapper-2 {
+    font-size: 50px;
     display: block;
     margin-top: 0;
 }
 
-.screen .div-wrapper-3 {
+.login-screen .div-wrapper-3 {
     align-items: center;
     align-self: stretch;
     display: flex;
@@ -81,7 +91,7 @@
     width: 100%;
 }
 
-.screen .div-2 {
+.login-screen .div-2 {
     align-items: center;
     align-self: stretch;
     display: flex;
@@ -93,7 +103,7 @@
     width: 100%;
 }
 
-.screen .div-3 {
+.login-screen .div-3 {
     align-items: flex-start;
     display: flex;
     flex: 0 0 auto;
@@ -105,7 +115,7 @@
     max-width: 90%;
 }
 
-.screen .text-wrapper-3 {
+.login-screen .text-wrapper-3 {
     align-items: center;
     align-self: stretch;
     color: #000000;
@@ -121,13 +131,13 @@
     position: relative;
 }
 
-.screen .input-field-instance {
+.login-screen .input-field-instance {
     left: unset !important;
     top: unset !important;
     width: 100% !important;
     background-color: #f5f5f5;
     border: none;
-    border-radius: 0;
+    border-radius: 8px;
     padding: 16px 20px;
     font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     font-size: 16px;
@@ -136,16 +146,16 @@
     box-sizing: border-box;
 }
 
-.screen .input-field-instance::placeholder {
+.login-screen .input-field-instance::placeholder {
     color: #999999;
 }
 
-.screen .input-field-instance:focus {
+.login-screen .input-field-instance:focus {
     outline: none;
     background-color: #e8e8e8;
 }
 
-.screen .text-wrapper-4 {
+.login-screen .text-wrapper-4 {
     align-items: center;
     align-self: stretch;
     color: #000000;
@@ -161,7 +171,7 @@
     position: relative;
 }
 
-.screen .component-54-wrapper {
+.login-screen .component-54-wrapper {
     align-items: center;
     display: flex;
     flex: 0 0 auto;
@@ -173,14 +183,14 @@
     max-width: 90%;
 }
 
-.screen .component-54 {
+.login-screen .component-54 {
     height: 48px !important;
     left: unset !important;
     top: unset !important;
     width: 100% !important;
-    background-color: #1a1a1a !important;
+    background-color: #0246cd !important;
     border: none;
-    border-radius: 0;
+    border-radius: 8px !important;
     color: #ffffff;
     font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     font-size: 16px;
@@ -190,11 +200,11 @@
     box-sizing: border-box;
 }
 
-.screen .component-54:hover {
-    background-color: #2a2a2a !important;
+.login-screen .component-54:hover {
+    background-color: #0035a0 !important;
 }
 
-.screen .component-54-instance-wrapper {
+.login-screen .component-54-instance-wrapper {
     align-items: center;
     display: flex;
     flex-direction: column;
@@ -205,14 +215,14 @@
     max-width: 90%;
 }
 
-.screen .component-54-instance {
+.login-screen .component-54-instance {
     background-color: #0246cd !important;
     height: 48px !important;
     left: unset !important;
     top: unset !important;
     width: 100% !important;
     border: none;
-    border-radius: 0;
+    border-radius: 8px !important;
     color: #ffffff;
     font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     font-size: 16px;
@@ -226,6 +236,6 @@
     box-sizing: border-box;
 }
 
-.screen .component-54-instance:hover {
+.login-screen .component-54-instance:hover {
     background-color: #0035a0 !important;
 }
