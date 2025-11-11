@@ -1,15 +1,87 @@
-<!DOCTYPE>
-<html>
+<!DOCTYPE html> <html>
     <head>
-        <meta charset=""UTF-8>
-        <title>데이터 이용</title>
-    </head>
+        <meta charset="UTF-8"> <title>데이터 이용</title>
+
+        <style>
+            /* 팝업 배경 (기본 숨김) */
+            .modal-overlay {
+                display: none; 
+                position: fixed; 
+                z-index: 1000; 
+                left: 0;
+                top: 0;
+                width: 100%; 
+                height: 100%; 
+                overflow: auto; 
+                background-color: rgba(0,0,0,0.5); /* 반투명 검은 배경 */
+            }
+            
+            /* 팝업 내용 상자 */
+            .modal-content {
+                background-color: #fefefe;
+                margin: 15% auto; 
+                padding: 20px 30px; /* 좌우 여백을 조금 더 줍니다 */
+                border: 1px solid #888;
+                width: 90%;
+                max-width: 500px;
+                border-radius: 8px;
+                box-shadow: 0 4px 10px 0 rgba(0,0,0,0.2);
+            }
+
+            .modal-content h3 {
+                margin-top: 0;
+                text-align: center; /* 제목 중앙 정렬 */
+            }
+
+            .modal-content ul {
+                list-style-type: none; /* 점 제거 */
+                padding-left: 0;
+            }
+
+            /* 💡 [수정] 
+              li 항목을 flexbox로 정렬합니다.
+            */
+            .modal-content li {
+                font-size: 16px;
+                padding: 8px 0;
+                display: flex; /* Flexbox 레이아웃 적용 */
+                align-items: center; /* 세로 중앙 정렬 */
+            }
+
+            /* 💡 [수정] 
+              첫 번째 span(레이블)에 고정 너비를 줍니다.
+            */
+            .modal-content li span:first-child {
+                font-weight: 600;
+                color: #333; /* 레이블 색상 살짝 어둡게 */
+                min-width: 180px; /* 👈 (핵심) 레이블의 최소 너비 지정 */
+                display: inline-block;
+            }
+            
+            /* 💡 [추가] 
+              두 번째 span(값) 스타일
+            */
+            .modal-content li span:last-child {
+                color: #555; /* 값 텍스트 색상 */
+            }
+            
+            /* 팝업 닫기 버튼 */
+            .modal-button {
+                background-color: #0d6efd; /* 이미지와 유사한 파란색 */
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                display: block; /* 블록 레벨로 변경 */
+                width: 100px; /* 너비 지정 */
+                margin: 20px auto 0; /* 상단 여백 및 중앙 정렬 */
+                font-size: 15px;
+            }
+        </style>
+        </head>
     <body>
         <h1>데이터 목록</h1>
-
-        <a href="" target="_self" class="btn action dataupload">
-            <div class="slot-wrapper">카테고리별 데이터 목록</div>
-        </a>
         
         <h2>업로드된 파일 목록</h2>
         {% if files %}
@@ -36,8 +108,16 @@
                     <td>{{ f.data_date|date:"Y.m.d" }}</td>
                     <td>{{ f.data_usage }}</td>
                     <td>
-                        <button type="button" onclick="location.href='/PISafeZone/datause/page3?data={{ f.data_id }}'">상세 정보</button>
-                    </td>
+                        <button type="button" 
+                                onclick="openModal(
+                                    '{{ f.data_name }}',
+                                    '{{ f.user.first_name|default:f.user.email }}',
+                                    '{{ f.data_date|date:"Y.m.d" }}',
+                                    '{{ f.data_usage }}'
+                                )">
+                            상세 정보
+                        </button>
+                        </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -50,5 +130,56 @@
             <p>표시할 파일이 없습니다.</p>
         {% endif %}
 
-    </body>
+
+        <div id="detailsModal" class="modal-overlay">
+            <div class="modal-content">
+                <h3>데이터 상세 정보</h3>
+                
+                <ul>
+                    <li><span>• 데이터명</span> <span id="modal-data-name"></span></li>
+                    <li><span>• 데이터 제공자</span> <span id="modal-user-email"></span></li>
+                    <li><span>• 데이터 업로드 날짜</span> <span id="modal-data-date"></span></li>
+                    <li><span>• 데이터 이용수</span> <span id="modal-data-usage"></span></li>
+                    <li><span>• 제공 카탈로그</span> <span>(정보 없음)</span></li>
+                    <li><span>• 기타 데이터 상세 정보</span> <span>(정보 없음)</span></li>
+                </ul>
+                
+                <button type="button" class="modal-button" onclick="closeModal()">확인</button>
+            </div>
+        </div>
+        <script>
+            // 모달 DOM 요소를 미리 찾아둡니다.
+            var modal = document.getElementById('detailsModal');
+            
+            // 팝업 안의 텍스트가 표시될 <span> 요소들을 찾아둡니다.
+            var modalDataName = document.getElementById('modal-data-name');
+            var modalUserEmail = document.getElementById('modal-user-email');
+            var modalDataDate = document.getElementById('modal-data-date');
+            var modalDataUsage = document.getElementById('modal-data-usage');
+
+            // "상세정보" 버튼 클릭 시 모달을 여는 함수
+            function openModal(name, email, date, usage) {
+                // 전달받은 값으로 팝업의 내용을 채웁니다.
+                modalDataName.textContent = name;
+                modalUserEmail.textContent = email;
+                modalDataDate.textContent = date;
+                modalDataUsage.textContent = usage;
+                
+                // 팝업을 화면에 표시합니다.
+                modal.style.display = 'block';
+            }
+
+            // "확인" 버튼 클릭 시 모달을 닫는 함수
+            function closeModal() {
+                modal.style.display = 'none';
+            }
+
+            // 모달 바깥의 어두운 배경을 클릭해도 닫히도록 설정
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            }
+        </script>
+        </body>
 </html>
