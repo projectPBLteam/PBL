@@ -151,11 +151,7 @@ def datause3(request):
 
     result_text = None
     columns = []
-    session_key = None
-
     if data_id:
-        session_key = f'query_budget_{data_id}'
-
         try:
             data_obj = Data.objects.get(pk=data_id)
             raw_data_with_header = _load_dynamic_table_as_list(data_obj.data_name)
@@ -178,8 +174,7 @@ def datause3(request):
                 if col_idx is not None:
                     for row in raw_data:
                         try:
-                            val = float(row[col_idx])
-                            numeric_values.append(val)
+                            numeric_values.append(float(row[col_idx]))
                         except (ValueError, TypeError):
                             continue
 
@@ -190,17 +185,28 @@ def datause3(request):
                     sensitivity = (max(numeric_values) - min(numeric_values)) / n
                     epsilon = 0.7
 
-                    if session_key not in request.session:
-                        numeric_values = [float(row[col_idx]) for row in raw_data if row[col_idx] is not None]
-                        initial_query_n = FindQueryN(numeric_values, n, epsilon, sensitivity)
-                        request.session[session_key] = initial_query_n
+                    if "query_budget" not in request.session:
+                        request.session["query_budget"] = {}
 
-                    QueryN = request.session.get(session_key, 0)
+                    q = request.session["query_budget"]
+
+                    if data_id not in q:
+                        q[data_id] = {}
+
+                    if stat not in q[data_id]:
+                        q[data_id][stat] = {}
+
+                    if selected_col not in q[data_id][stat]:
+                        initial_query_n = FindQueryN(numeric_values, n, epsilon, sensitivity)
+                        q[data_id][stat][selected_col] = initial_query_n
+
+                    QueryN = q[data_id][stat][selected_col]
 
                     if QueryN < 1:
                         result_text = f"이용하실 수 있는 쿼리 수를 모두 소진하셨습니다."
                     else:
-                        request.session[session_key] = QueryN - 1
+                        q[data_id][stat][selected_col] = QueryN - 1
+                        request.session["query_budget"] = q
 
                         noisy_values = laplace_local_differential_privacy(
                             numeric_values,
@@ -228,13 +234,11 @@ def datause3(request):
                                 modes = calculate_mode(cleaned_noisy)
                                 result_text = f"최빈값({selected_col}) = {list(modes)}"
 
-                            result_text += f" (남은 쿼리: {QueryN - 1}회)"
+                            result_text += f" (남은 쿼리: {q[data_id][stat][selected_col]}회)"
 
         except Data.DoesNotExist:
             result_text = "선택한 데이터가 존재하지 않습니다."
         except Exception as e:
-            if session_key in request.session:
-                del request.session[session_key]
             result_text = f"처리 중 오류: {e}{numeric_values}"
 
     ctx = {
@@ -242,6 +246,7 @@ def datause3(request):
         'columns': columns,
         'selected_col': selected_col,
     }
+
     return render(request, 'datause3.html', ctx)
 
 

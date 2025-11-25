@@ -34,7 +34,8 @@ def find_convergence(values, window_size=5, threshold=0.05, streak_required=5):
 
 def FindQueryN(raw, n, epsilon, sensitivity):
     # 신뢰구간 제한 쿼리 수 계산
-    window_size = int(max(20, min(100, n * 0.003)))
+    # window_size = int(max(20, min(100, n * 0.003)))
+    window_size = 20
     threshold = max(0.01, min(0.1, sensitivity / np.mean(raw)))
     streak_required = 5
     convergence_list = []
@@ -48,7 +49,7 @@ def FindQueryN(raw, n, epsilon, sensitivity):
     # 수렴 결과 유효값만 사용
     valid_convs = [x for x in convergence_list if x is not None]
     if not valid_convs:
-        return 1  # 수렴하지 않으면 최소 1회
+        return 10  # 수렴하지 않으면 최소 1회
     # 평균 수렴 시점 반환
     N = int(np.mean(valid_convs))
     return N
