@@ -36,10 +36,30 @@ export default function DataUpload() {
       setFileSelected(true);
     }
   };
-  const handleComplete = () => {
-    alert("데이터가 업로드되었습니다.")
-    navigate('/main')
-  }
+  const handleComplete = async () => {
+    if (!fileInputRef.current?.files?.[0]) return;
+
+    const file = fileInputRef.current.files[0];
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("http://localhost:8000/fileupload/", {
+      method: "POST",
+      body: formData,
+      credentials: "include", // 로그인 세션 포함
+    });
+
+    const data = await response.json();
+    console.log("백엔드 응답:", data);
+
+    if (data.success) {
+      alert("데이터가 업로드되었습니다!");
+      navigate('/main');
+    } else {
+      alert(data.message || "업로드 실패");
+    }
+  };
+
 
   return (
     <div className="data-upload-screen">

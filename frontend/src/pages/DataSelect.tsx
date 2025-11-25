@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./DataSelect.css";
 
@@ -14,17 +14,20 @@ export default function DataSelect() {
   const navigate = useNavigate();
   const handleBack = () => navigate('/main');
 
-  // DB에서 받아올 데이터 예시
-  const [dataList] = useState<DataItem[]>([
-    { id: 1, name: "Cardbase.csv", provider: "user1", uploadDate: "2025.10.06", usageCount: 0 },
-    { id: 2, name: "SalesData.csv", provider: "user2", uploadDate: "2025.11.01", usageCount: 3 },
-  ]);
-
-  // 선택된 데이터 id
+  const [dataList, setDataList] = useState<DataItem[]>([]); // 여기서 초기화
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const handleSelect = (id: number) => {
-    setSelectedId(id); // 하나만 선택되도록
+  useEffect(() => {
+    fetch("http://localhost:8000/api/data-list/", { credentials: "include" })
+      .then(res => res.json())
+      .then(json => {
+        if(json.success) setDataList(json.data);
+        else alert("데이터를 불러오는데 실패했습니다.");
+      });
+  }, []);
+
+ const handleSelect = (id: number) => {
+    setSelectedId(id);
   };
 
   return (

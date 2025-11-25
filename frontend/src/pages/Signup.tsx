@@ -4,15 +4,33 @@ import { useNavigate } from 'react-router-dom'
 
 export default function Signup() {
   const navigate = useNavigate()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [emailDuplicate, setEmailDuplicate] = useState(false)
 
   const handleBack = () => {
     navigate('/')
   }
 
-  const handleSignup = () => {
-    alert("회원가입이 완료되었습니다.")
-    navigate('/')
+  const handleSignup = async () => {
+    const response = await fetch("http://localhost:8000/signup/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        email: email, 
+        password: password }),
+      credentials: "include",  // 세션 쿠키 포함
+    })
+
+    const data = await response.json()
+    console.log("백엔드 응답:", data)
+
+    if (data.success) {
+      alert("회원가입이 완료되었습니다.")
+      navigate('/main')
+    } else {
+      alert(data.message)
+    }
   }
 
   return (
@@ -38,7 +56,8 @@ export default function Signup() {
           <input
             className="signup-input-field-instance"
             placeholder="이메일을 입력해주세요."
-            onChange={() => setEmailDuplicate(false)}
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); setEmailDuplicate(false); }}
           />
           {emailDuplicate && (
             <div className="signup-text-wrapper-6">* 가입된 이메일이 존재합니다</div>
@@ -49,6 +68,8 @@ export default function Signup() {
             className="signup-input-field-instance"
             type="password"
             placeholder="비밀번호를 입력해주세요."
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
 
           <div className="signup-frame-wrapper">

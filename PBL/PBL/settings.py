@@ -149,3 +149,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = 'PISafeZone.CustomUser'
 LOGIN_REDIRECT_URL = '/' #로그인 후 기본 이동 URL 지정
 
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",  # React dev 서버
+]
