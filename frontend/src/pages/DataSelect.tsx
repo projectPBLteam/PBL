@@ -76,7 +76,7 @@ export default function DataSelect() {
                     <div className="cell-flex">{item.usageCount}</div>
                     <div className="cell-flex" 
                         style={{ color: '#0246cd', cursor: 'pointer' }}
-                        onClick={() => alert(`${item.name} 상세보기 클릭됨`)}>
+                        onClick={() => navigate('/data-detail/' + item.id)}>
                       상세 정보
                     </div>
                   </div>
@@ -92,8 +92,11 @@ export default function DataSelect() {
         <button 
           className="component-153-instance" 
           onClick={() => {
-            if (selectedId !== null) navigate('/data-analysis')
-            else alert("데이터를 선택해주세요.")
+            if (selectedId !== null) {
+              navigate('/data-analysis', { state: { dataId: selectedId } });
+            } else {
+              alert("데이터를 선택해주세요.")
+            }
           }}
         >
           데이터 분석

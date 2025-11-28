@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 # 로그인한 사용자만 업로드할 수 있도록 @login_required 추가
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from .forms import UploadFileForm
 from django.db import connection    #DB 커서 접근용
 from django.contrib.auth import authenticate, login, logout, get_user_model
@@ -18,7 +18,6 @@ from modules.user_input import FindQueryN
 
 # CSRF 
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
 from django.contrib.auth import authenticate, login
 import json
 from django.contrib.auth.decorators import login_required
@@ -118,6 +117,24 @@ def data_list_view(request):
         ]
         return JsonResponse({"success": True, "data": data_list})
     return JsonResponse({"success": False, "message": "로그인 필요"})
+
+def data_detail(request, id):
+    try:
+        obj = DataModel.objects.get(id=id)
+    except DataModel.DoesNotExist:
+        return JsonResponse({"success": False, "message": "데이터 없음!"})
+
+    return JsonResponse({
+        "success": True,
+        "data": {
+            "id": obj.id,
+            "name": obj.name,
+            "provider": obj.provider,
+            "uploadDate": obj.upload_date.strftime("%Y-%m-%d"),
+            "usageCount": obj.usage_count,
+            "catalog": obj.catalog,
+        }
+    })
 
 @login_required
 def datause(request):
@@ -299,3 +316,163 @@ def signup_view(request):
 def user_logout(request):
     logout(request)
     return redirect('main')
+
+# -----------------------------
+# 🔥 React용 분석 API (JSON 전용)
+# -----------------------------
+from django.views.decorators.csrf import csrf_exempt
+
+@login_required
+def api_get_columns(request, data_id):
+    """특정 데이터의 컬럼 목록 반환"""
+    try:
+        data_obj = Data.objects.get(pk=data_id)
+        raw = _load_dynamic_table_as_list(data_obj.data_name)
+
+        if not raw or len(raw) < 1:
+            return JsonResponse({"success": False, "message": "데이터가 비어있습니다."})
+
+        columns = raw[0]
+        return JsonResponse({"success": True, "columns": columns})
+
+    except Data.DoesNotExist:
+        return JsonResponse({"success": False, "message": "데이터가 존재하지 않습니다."})
+
+
+@csrf_exempt
+@login_required
+def api_analyze(request, data_id):
+    """React에서 요청하는 분석 API (평균/중앙값/최빈값)"""
+    if request.method != "POST":
+        return JsonResponse({"success": False, "message": "POST만 허용됩니다."})
+
+    try:
+        body = json.loads(request.body)
+        stat = body.get("stat")        # mean, median, mode
+        selected_col = body.get("col") # 컬럼명
+    except:
+        return JsonResponse({"success": False, "message": "JSON 형식 오류"})
+
+    if not stat or not selected_col:
+        return JsonResponse({"success": False, "message": "stat 또는 col 누락"})
+
+    try:
+        data_obj = Data.objects.get(pk=data_id)
+    except Data.DoesNotExist:
+        return JsonResponse({"success": False, "message": "데이터 없음"})
+
+    # DB에서 데이터 불러오기
+    raw_data_with_header = _load_dynamic_table_as_list(data_obj.data_name)
+    columns = raw_data_with_header[0]
+    rows = raw_data_with_header[1:]
+
+    # -----------------------------
+    # 컬럼 인덱스 찾기
+    # -----------------------------
+    if selected_col not in columns:
+        return JsonResponse({"success": False, "message": "해당 컬럼 없음"})
+
+    col_idx = columns.index(selected_col)
+
+    # -----------------------------
+    # 숫자만 파싱
+    # -----------------------------
+    numeric_values = []
+    for row in rows:
+        try:
+            numeric_values.append(float(row[col_idx]))
+        except:
+            pass
+
+    if not numeric_values:
+        return JsonResponse({"success": False, "message": "해당 컬럼에 숫자가 없음"})
+
+    # -----------------------------
+    # 쿼리 제한 처리
+    # -----------------------------
+    n = len(numeric_values)
+    sensitivity = (max(numeric_values) - min(numeric_values)) / n
+    epsilon = 0.7
+
+    if "query_budget" not in request.session:
+        request.session["query_budget"] = {}
+    q = request.session["query_budget"]
+
+    if data_id not in q:
+        q[data_id] = {}
+    if stat not in q[data_id]:
+        q[data_id][stat] = {}
+    if selected_col not in q[data_id][stat]:
+        q[data_id][stat][selected_col] = FindQueryN(
+            numeric_values, n, epsilon, sensitivity
+        )
+
+    QueryN = q[data_id][stat][selected_col]
+
+    if QueryN < 1:
+        return JsonResponse({"success": False, "message": "쿼리 소진됨"})
+
+    q[data_id][stat][selected_col] -= 1
+    request.session["query_budget"] = q
+
+    # -----------------------------
+    # LDP 적용
+    # -----------------------------
+    noisy_values = laplace_local_differential_privacy(
+        numeric_values, epsilon, sensitivity
+    )
+
+    clean = []
+    for v in noisy_values:
+        try:
+            clean.append(float(v))
+        except:
+            pass
+
+    if not clean:
+        return JsonResponse({"success": False, "message": "노이즈 후 값 없음"})
+
+    # -----------------------------
+    # 결과 계산
+    # -----------------------------
+    if stat == "mean":
+        value = calculate_mean(clean)
+    elif stat == "median":
+        value = calculate_median(clean)
+    elif stat == "mode":
+        modes = calculate_mode(clean)
+        value = list(modes)
+    else:
+        return JsonResponse({"success": False, "message": "stat 잘못됨"})
+
+    return JsonResponse({
+        "success": True,
+        "result": value,
+        "remaining": q[data_id][stat][selected_col]
+    })
+
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from .models import Data
+from django.db import connection
+
+@login_required
+def data_columns_api(request, data_id):
+    try:
+        data_obj = Data.objects.get(pk=data_id, user=request.user)
+    except Data.DoesNotExist:
+        return JsonResponse({"success": False, "message": "데이터가 존재하지 않습니다."})
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+            ORDER BY ORDINAL_POSITION
+            """,
+            [data_obj.data_name],
+        )
+        columns = [row[0] for row in cursor.fetchall()]
+
+    return JsonResponse({"success": True, "columns": columns})

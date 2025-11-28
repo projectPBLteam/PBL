@@ -77,9 +77,9 @@ class Data(models.Model):
     #    settings.AUTH_USER_MODEL을 사용하여 CustomUser에 연결
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
+    catalog = models.CharField(max_length=200)  # ← 혹시 이거 있음?
     def __str__(self):
         return self.data_name
-
 
 class UsageHistory(models.Model):
     class UsageType(models.TextChoices):
