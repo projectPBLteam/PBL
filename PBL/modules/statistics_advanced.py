@@ -28,8 +28,8 @@ def run_regression_analysis(data, col1, col2):
             continue
 
     if len(x) < 2:
-        print("[오류] 유효한 데이터가 부족합니다.")
-        return
+        result_text = "[오류] 유효한 데이터가 부족합니다."
+        return result_text
 
     x_np = np.array(x).reshape(-1, 1)
     y_np = np.array(y)
@@ -41,15 +41,19 @@ def run_regression_analysis(data, col1, col2):
     intercept = model.intercept_
     r_squared = model.score(x_np, y_np)
 
-    print("\n[회귀분석 결과]")
-    print(f"slope: {slope:.4f}")
-    print(f"intercept: {intercept:.4f}")
-    print(f"r_squared: {r_squared:.4f}")
+    result_text = f"""
+    [회귀분석 결과]
+    slope: {slope:.4f}
+    intercept: {intercept:.4f}
+    r_squared: {r_squared:.4f}
+    """
 
-    plot_regression_result(x_np, y_np, model, col1, col2)
+    # plot_regression_result(x_np, y_np, model, col1, col2)
+
+    return result_text
 
 # 상관 분석 실행 및 시각화
-def run_correlation_analysis(data, col1, col2, method='pearson'):
+def run_correlation_analysis(data, col1, col2, method):
     header = data[0]
     idx1 = header.index(col1)
     idx2 = header.index(col2)
@@ -62,20 +66,31 @@ def run_correlation_analysis(data, col1, col2, method='pearson'):
         except:
             continue
 
+    if len(x) < 2:
+        result_text = "[오류] 유효한 데이터가 부족합니다."
+        return result_text
+
     x_np = np.array(x)
     y_np = np.array(y)
+    result = None
 
     if method == 'pearson':
         result = pearson_correlation(x_np, y_np)
     elif method == 'spearman':
         result = spearman_correlation(x_np, y_np)
     else:
-        print("지원하지 않는 상관 분석 방법입니다.")
-        return
+        result_text = "지원하지 않는 상관 분석 방법입니다."
+        return result_text
+    
+    corr = result['correlation']
+    p_value = result['p_value']
+    
+    result_text = f"""
+[({method.capitalize()}) 상관 분석 결과]
+상관 계수 (Correlation): {corr:.4f}
+유의 확률 (P-value): {p_value:.4f}
+"""
+    return result_text
 
-    print(f"\n[{method.capitalize()} 상관 분석 결과]")
-    for k, v in result.items():
-        print(f"{k}: {v:.4f}")
-
-    plot_correlation_scatter(x_np, y_np, col1, col2, method.capitalize())
+    # plot_correlation_scatter(x_np, y_np, col1, col2, method.capitalize())
 

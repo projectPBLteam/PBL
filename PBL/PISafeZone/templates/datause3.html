@@ -12,34 +12,155 @@
                 <h3>상세 선택</h3>
                 <form method="get" action="">
                     <div style="display:flex; flex-direction:column; gap:8px; height:260px; overflow:auto;">
-                        <label><input type="radio" name="stat" value="mean" {% if request.GET.stat == 'mean' %}checked{% endif %}> 평균</label>
-                        <label><input type="radio" name="stat" value="median" {% if request.GET.stat == 'median' %}checked{% endif %}> 중앙값</label>
-                        <label><input type="radio" name="stat" value="mode" {% if request.GET.stat == 'mode' %}checked{% endif %}> 최빈값</label>
-                        <div style="margin-top:8px;">
+                        <label><input type="radio" name="stat" value="mean" {% if stat == 'mean' %}checked{% endif %}> 평균</label>
+                        <label><input type="radio" name="stat" value="median" {% if stat == 'median' %}checked{% endif %}> 중앙값</label>
+                        <label><input type="radio" name="stat" value="mode" {% if stat == 'mode' %}checked{% endif %}> 최빈값</label>
+                        <label><input type="radio" name="stat" value="variance" {% if stat == 'variance' %}checked{% endif %}> 표본분산</label>
+                        <label><input type="radio" name="stat" value="std_dev" {% if stat == 'std_dev' %}checked{% endif %}> 표준편차</label>
+                        <label><input type="radio" name="stat" value="sem" {% if stat == 'sem' %}checked{% endif %}> 표준오차</label>
+                        <label><input type="radio" name="stat" value="regression" {% if stat == 'regression' %}checked{% endif %}> 선형회귀 분석</label>
+                        <label><input type="radio" name="stat" value="correlation_p" {% if stat == 'correlation_p' %}checked{% endif %}> 상관분석(피어슨)</label>
+                        <label><input type="radio" name="stat" value="correlation_s" {% if stat == 'correlation_s' %}checked{% endif %}> 상관분석(스피어만)</label>
+                        
+                        <div id="single_column_selector" style="margin-top:8px; display:none;"> 
                             <label>대상 컬럼</label>
-                            <select name="col" style="width:100%;">
+                            <select name="col_single" style="width:100%;">
                                 {% for c in columns %}
-                                    <option value="{{ c }}" {% if selected_col == c %}selected{% endif %}>{{ c }}</option>
+                                    <option value="{{ c }}" {% if selected_col_single == c %}selected{% endif %}>{{ c }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <input type="hidden" name="data" value="{{ request.GET.data }}">
+
+                        <div id="Double_column_selectors" style="display:none;">
+                            <div style="margin-top:8px;">
+                                <label>종속 변수 (Y)</label>
+                                <select name="col_y" style="width:100%;">
+                                    {% for c in columns %}
+                                        <option value="{{ c }}" {% if selected_col_y == c %}selected{% endif %}>{{ c }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        <div style="margin-top:8px;">
+                                <label>독립 변수 (X)</label>
+                                <select name="col_x" style="width:100%;">
+                                    {% for c in columns %}
+                                        <option value="{{ c }}" {% if selected_col_x == c %}selected{% endif %}>{{ c }}</option> 
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                        <input type="hidden" name="data" value="{{ data_id }}">
                     </div>
+        
                     <div style="margin-top:12px; text-align:right;">
                         <button type="submit">확인</button>
                     </div>
                 </form>
             </div>
+        </div>
 
-            <div style="flex:1; border:1px solid #ccc; border-radius:6px; padding:10px; min-height:260px;">
-                <h3>통계 처리 결과</h3>
-                <div style="white-space:pre-wrap; min-height:200px;">{{ result|default:"데이터 분석 결과입니다." }}</div>
+        <div style="flex:1; border:1px solid #ccc; border-radius:6px; padding:10px; min-height:260px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                <h3 style="margin:0;">통계 처리 결과</h3>
+                <button type="button" id="customCodeToggle" style="padding:6px 12px;">직접 코드 입력</button>
             </div>
+            <div id="statResultDisplay" style="white-space:pre-wrap; min-height:120px; margin-top:12px;">
+                {{ result|default:"데이터 분석 결과입니다." }}
+            </div>
+            <div id="customConsoleWrapper" style="white-space:pre-wrap; min-height:140px; background:#f7f7f7; border:1px dashed #bbb; border-radius:4px; padding:10px; margin-top:12px; display:{% if custom_console_log or is_custom_mode %}block{% else %}none{% endif %};">
+                {{ custom_console_log|default:"" }}
+            </div>
+            <form id="customCodeForm" method="post" style="margin-top:12px; display:none;">
+                {% csrf_token %}
+                <input type="hidden" name="mode" value="custom_code">
+                <input type="hidden" name="data" value="{{ data_id }}">
+                <textarea name="custom_code" rows="6" style="width:100%; font-family:monospace;" placeholder="df.describe() 등 실행하고 싶은 파이썬 코드를 입력하세요.">{{ last_custom_code }}</textarea>
+                <div style="margin-top:8px; display:flex; justify-content:flex-end; gap:8px;">
+                    <button type="button" id="customCodeCancel">취소</button>
+                    <button type="submit">실행</button>
+                </div>
+            </form>
         </div>
 
         <div style="margin-top:20px; text-align:right;">
             <button type="button" onclick="history.back()">결과 반출</button>
         </div>
+
+        <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const radioButtons = document.querySelectorAll('input[name="stat"]');
+        // 단일 선택 영역
+        const singleSelector = document.getElementById('single_column_selector');
+        // 회귀 분석 그룹 영역
+        const regressionSelectors = document.getElementById('Double_column_selectors');
+
+        function toggleColumnSelectors() {
+            const selectedStat = document.querySelector('input[name="stat"]:checked').value;
+
+            if (selectedStat === 'regression' || selectedStat === 'correlation_p' || selectedStat === 'correlation_s') {
+                // 회귀 분석 선택 시: 두 개(Y, X)만 표시
+                singleSelector.style.display = 'none';
+                regressionSelectors.style.display = 'block';
+            } else {
+                // 그 외 선택 시: 단일 컬럼만 표시
+                regressionSelectors.style.display = 'none';
+                singleSelector.style.display = 'block';
+            }
+        }
+
+        // 모든 라디오 버튼에 이벤트 리스너를 추가
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', toggleColumnSelectors); 
+        });
+        toggleColumnSelectors(); 
+
+        const customCodeToggle = document.getElementById('customCodeToggle');
+        const customCodeForm = document.getElementById('customCodeForm');
+        const customCodeCancel = document.getElementById('customCodeCancel');
+        const customConsoleWrapper = document.getElementById('customConsoleWrapper');
+        const shouldOpenCustom = '{{ is_custom_mode|yesno:"true,false" }}' === 'true';
+
+        function openCustomForm() {
+            if (!customCodeForm) return;
+            customCodeForm.style.display = 'block';
+            if (customCodeToggle) {
+                customCodeToggle.setAttribute('data-open', 'true');
+            }
+            if (customConsoleWrapper) {
+                customConsoleWrapper.style.display = 'block';
+            }
+        }
+
+        function closeCustomForm() {
+            if (!customCodeForm) return;
+            customCodeForm.style.display = 'none';
+            if (customCodeToggle) {
+                customCodeToggle.setAttribute('data-open', 'false');
+            }
+        }
+
+        if (customCodeToggle && customCodeForm) {
+            customCodeToggle.addEventListener('click', () => {
+                const isOpen = customCodeToggle.getAttribute('data-open') === 'true';
+                if (isOpen) {
+                    closeCustomForm();
+                } else {
+                    openCustomForm();
+                }
+            });
+        }
+
+        if (customCodeCancel) {
+            customCodeCancel.addEventListener('click', () => {
+                closeCustomForm();
+            });
+        }
+
+        if (shouldOpenCustom) {
+            openCustomForm();
+        }
+    });
+</script>
 
     </body>
 </html>
