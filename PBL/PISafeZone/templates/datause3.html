@@ -15,7 +15,12 @@
                         <label><input type="radio" name="stat" value="mean" {% if request.GET.stat == 'mean' %}checked{% endif %}> 평균</label>
                         <label><input type="radio" name="stat" value="median" {% if request.GET.stat == 'median' %}checked{% endif %}> 중앙값</label>
                         <label><input type="radio" name="stat" value="mode" {% if request.GET.stat == 'mode' %}checked{% endif %}> 최빈값</label>
+                        <label><input type="radio" name="stat" value="variance" {% if request.GET.stat == 'variance' %}checked{% endif %}> 표본분산</label>
+                        <label><input type="radio" name="stat" value="std_dev" {% if request.GET.stat == 'std_dev' %}checked{% endif %}> 표준편차</label>
+                        <label><input type="radio" name="stat" value="sem" {% if request.GET.stat == 'sem' %}checked{% endif %}> 표준오차</label>
                         <label><input type="radio" name="stat" value="regression" {% if request.GET.stat == 'regression' %}checked{% endif %}> 선형회귀 분석</label>
+                        <label><input type="radio" name="stat" value="correlation_p" {% if request.GET.stat == 'correlation_p' %}checked{% endif %}> 상관분석(피어슨)</label>
+                        <label><input type="radio" name="stat" value="correlation_s" {% if request.GET.stat == 'correlation_s' %}checked{% endif %}> 상관분석(스피어만)</label>
                         
                         <div id="single_column_selector" style="margin-top:8px; display:none;"> 
                             <label>대상 컬럼</label>
@@ -26,8 +31,7 @@
                             </select>
                         </div>
 
-                        <!--선형회귀용-->
-                        <div id="regression_column_selectors" style="display:none;">
+                        <div id="Double_column_selectors" style="display:none;">
                             <div style="margin-top:8px;">
                                 <label>종속 변수 (Y)</label>
                                 <select name="col_y" style="width:100%;">
@@ -70,12 +74,12 @@
         // 단일 선택 영역
         const singleSelector = document.getElementById('single_column_selector');
         // 회귀 분석 그룹 영역
-        const regressionSelectors = document.getElementById('regression_column_selectors');
+        const regressionSelectors = document.getElementById('Double_column_selectors');
 
         function toggleColumnSelectors() {
             const selectedStat = document.querySelector('input[name="stat"]:checked').value;
 
-            if (selectedStat === 'regression') {
+            if (selectedStat === 'regression' || selectedStat === 'correlation_p' || selectedStat === 'correlation_s') {
                 // 회귀 분석 선택 시: 두 개(Y, X)만 표시
                 singleSelector.style.display = 'none';
                 regressionSelectors.style.display = 'block';

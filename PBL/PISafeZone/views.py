@@ -13,8 +13,8 @@ from .models import Data, UsageHistory, CustomUser
 # 모듈 임포트
 from modules.data_utils import read_csvfile, maketbl, insert_data
 from modules.privacy import laplace_local_differential_privacy
-from modules.statistics_basic import calculate_mean, calculate_median, calculate_mode
-from modules.statistics_advanced import run_regression_analysis
+from modules.statistics_basic import *
+from modules.statistics_advanced import run_regression_analysis, run_correlation_analysis
 from modules.user_input import FindQueryN
 
 # CSRF 
@@ -160,7 +160,7 @@ def datause3(request):
     selected_col_y = request.GET.get('col_y')
     selected_col_x = request.GET.get('col_x')
 
-    if stat == 'regression':
+    if stat == 'regression' or stat == 'correlation_p' or stat == 'correlation_s':
         selected_col = f"{selected_col_y} vs {selected_col_x}"
     else:
         selected_col = selected_col_single
@@ -181,22 +181,19 @@ def datause3(request):
             
             col_to_process = []
             
-            if stat == 'regression':
+            if stat == 'regression' or 'correlation_p' or 'correlation_s':
                 if not selected_col_y or not selected_col_x:
-                    result_text = "선형회귀 분석을 위해 종속 변수(Y)와 독립 변수(X)를 모두 선택해야 합니다."
+                    result_text = "분석을 위해 종속 변수(Y)와 독립 변수(X)를 모두 선택해야 합니다."
                     return render(request, 'datause3.html', {'result': result_text, 'columns': columns})
-                
                 col_to_process.append(selected_col_y)
                 col_to_process.append(selected_col_x)
                 
             elif selected_col_single:
                 col_to_process.append(selected_col_single)
-            
             else:
                 col_to_process = []
 
             if col_to_process:
-                
                 col_data = {}
                 col_indices = {}
                 
@@ -288,16 +285,38 @@ def datause3(request):
                     elif stat == 'mode':
                         modes = calculate_mode(noisy_col_data[main_col_name])
                         result_text = f"최빈값({selected_col}) = {list(modes)}"
+                    elif stat == 'variance':
+                        value = calculate_variance(noisy_col_data[main_col_name])
+                        result_text = f"표본분산({selected_col}) = {float(value):.4f}"
+                    elif stat == 'std_dev':
+                        value = calculate_std_dev(noisy_col_data[main_col_name])
+                        result_text = f"표준편차({selected_col}) = {float(value):.4f}"
+                    elif stat == 'sem':
+                        value = calculate_sem(noisy_col_data[main_col_name])
+                        result_text = f"표준오차({selected_col}) = {float(value):.4f}"
                     
                     elif stat == 'regression':
-                        try:
-                            result_text = run_regression_analysis(
-                                noisy_data_with_header, 
-                                selected_col_x, 
-                                selected_col_y
-                            )
-                        except Exception as e:
-                            result_text = f"[선형회귀 오류] {e}"
+                        result_text = run_regression_analysis(
+                            noisy_data_with_header, 
+                            selected_col_x, 
+                            selected_col_y
+                        )
+
+                    elif stat == 'correlation_p': 
+                        result_text = run_correlation_analysis(
+                            noisy_data_with_header, 
+                            selected_col_x, 
+                            selected_col_y,
+                            'pearson'
+                        )
+
+                    elif stat == 'correlation_s': 
+                        result_text = run_correlation_analysis(
+                            noisy_data_with_header, 
+                            selected_col_x, 
+                            selected_col_y,
+                            'spearman'
+                        )
                     
                     result_text += f"\n (남은 쿼리: {q[data_id][stat][selected_col]}회)"
 
