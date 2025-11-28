@@ -53,11 +53,11 @@
                     </div>
                 </form>
             </div>
+        </div>
 
-            <div style="flex:1; border:1px solid #ccc; border-radius:6px; padding:10px; min-height:260px;">
-                <h3>통계 처리 결과</h3>
-                <div style="white-space:pre-wrap; min-height:200px;">{{ result|default:"데이터 분석 결과입니다." }}</div>
-            </div>
+        <div style="flex:1; border:1px solid #ccc; border-radius:6px; padding:10px; min-height:260px;">
+            <h3>통계 처리 결과</h3>
+            <div style="white-space:pre-wrap; min-height:200px;">{{ result|default:"데이터 분석 결과입니다." }}</div>
         </div>
 
         <div style="margin-top:20px; text-align:right;">
@@ -65,36 +65,34 @@
         </div>
 
         <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const radioButtons = document.querySelectorAll('input[name="stat"]');
-                // 단일 선택 영역
-                const singleSelector = document.getElementById('single_column_selector');
-                // 회귀 분석 그룹 영역
-                const regressionSelectors = document.getElementById('regression_column_selectors');
+    document.addEventListener('DOMContentLoaded', function() {
+        const radioButtons = document.querySelectorAll('input[name="stat"]');
+        // 단일 선택 영역
+        const singleSelector = document.getElementById('single_column_selector');
+        // 회귀 분석 그룹 영역
+        const regressionSelectors = document.getElementById('regression_column_selectors');
 
-                function toggleColumnSelectors() {
-                    const selectedStat = document.querySelector('input[name="stat"]:checked').value;
+        function toggleColumnSelectors() {
+            const selectedStat = document.querySelector('input[name="stat"]:checked').value;
 
-                    if (selectedStat === 'regression') {
-                        // 회귀 분석 선택 시: 두 개(Y, X)만 표시
-                        singleSelector.style.display = 'none';
-                        regressionSelectors.style.display = 'block';
-                    } else {
-                        // 그 외 선택 시: 단일 컬럼만 표시
-                        regressionSelectors.style.display = 'none';
-                        singleSelector.style.display = 'block';
-                    }
-                }
+            if (selectedStat === 'regression') {
+                // 회귀 분석 선택 시: 두 개(Y, X)만 표시
+                singleSelector.style.display = 'none';
+                regressionSelectors.style.display = 'block';
+            } else {
+                // 그 외 선택 시: 단일 컬럼만 표시
+                regressionSelectors.style.display = 'none';
+                singleSelector.style.display = 'block';
+            }
+        }
 
-                // 모든 라디오 버튼에 이벤트 리스너를 추가
-                radioButtons.forEach(radio => {
-                    radio.addEventListener('change', toggleIndependentSelector);
-                });
-
-                // 페이지 로드 시 초기 상태를 한 번 확인하여 설정
-                toggleIndependentSelector();
-            });
-        </script>
+        // 모든 라디오 버튼에 이벤트 리스너를 추가
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', toggleColumnSelectors); 
+        });
+        toggleColumnSelectors(); 
+    });
+</script>
 
     </body>
 </html>

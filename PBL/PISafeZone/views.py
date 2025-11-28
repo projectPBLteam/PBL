@@ -14,6 +14,7 @@ from .models import Data, UsageHistory, CustomUser
 from modules.data_utils import read_csvfile, maketbl, insert_data
 from modules.privacy import laplace_local_differential_privacy
 from modules.statistics_basic import calculate_mean, calculate_median, calculate_mode
+from modules.statistics_advanced import run_regression_analysis
 from modules.user_input import FindQueryN
 
 # CSRF 
@@ -154,10 +155,19 @@ def _load_dynamic_table_as_list(table_name):
 def datause3(request):
     data_id = request.GET.get('data')
     stat = request.GET.get('stat')
-    selected_col = request.GET.get('col')
+    
+    selected_col_single = request.GET.get('col_single') 
+    selected_col_y = request.GET.get('col_y')
+    selected_col_x = request.GET.get('col_x')
 
+    if stat == 'regression':
+        selected_col = f"{selected_col_y} vs {selected_col_x}"
+    else:
+        selected_col = selected_col_single
+    
     result_text = None
     columns = []
+    
     if data_id:
         try:
             data_obj = Data.objects.get(pk=data_id)
@@ -168,93 +178,141 @@ def datause3(request):
 
             columns = raw_data_with_header[0]
             raw_data = raw_data_with_header[1:]
-            noisy_values=[]
+            
+            col_to_process = []
+            
+            if stat == 'regression':
+                if not selected_col_y or not selected_col_x:
+                    result_text = "선형회귀 분석을 위해 종속 변수(Y)와 독립 변수(X)를 모두 선택해야 합니다."
+                    return render(request, 'datause3.html', {'result': result_text, 'columns': columns})
+                
+                col_to_process.append(selected_col_y)
+                col_to_process.append(selected_col_x)
+                
+            elif selected_col_single:
+                col_to_process.append(selected_col_single)
+            
+            else:
+                col_to_process = []
 
-            if stat and selected_col:
-                try:
-                    col_idx = columns.index(selected_col)
-                except ValueError:
-                    result_text = f"컬럼 '{selected_col}'을 찾을 수 없습니다."
-                    col_idx = None
+            if col_to_process:
+                
+                col_data = {}
+                col_indices = {}
+                
+                for col_name in col_to_process:
+                    try:
+                        col_idx = columns.index(col_name)
+                        col_indices[col_name] = col_idx
+                        
+                        numeric_values = []
+                        for row in raw_data:
+                            try:
+                                numeric_values.append(float(row[col_idx]))
+                            except (ValueError, TypeError):
+                                continue
+                        col_data[col_name] = numeric_values
+                        
+                    except ValueError:
+                        result_text = f"컬럼 '{col_name}'을(를) 찾을 수 없습니다."
+                        return render(request, 'datause3.html', {'result': result_text, 'columns': columns})
+                
+                main_col_name = selected_col_y if stat == 'regression' else selected_col_single
+                main_values = col_data.get(main_col_name, [])
+                
+                if not main_values:
+                    result_text = f"선택한 컬럼에서 숫자 데이터를 찾을 수 없습니다."
+                    return render(request, 'datause3.html', {'result': result_text, 'columns': columns})
+                
+                n = len(main_values)
+                sensitivity = (max(main_values) - min(main_values)) / n
+                epsilon = 0.7
 
-                numeric_values = []
-                if col_idx is not None:
-                    for row in raw_data:
-                        try:
-                            numeric_values.append(float(row[col_idx]))
-                        except (ValueError, TypeError):
-                            continue
+                if "query_budget" not in request.session:
+                    request.session["query_budget"] = {}
 
-                if not numeric_values:
-                    result_text = f"선택한 컬럼 '{selected_col}'에서 숫자 데이터를 찾을 수 없습니다."
+                q = request.session["query_budget"]
+
+                if data_id not in q:
+                    q[data_id] = {}
+
+                if stat not in q[data_id]:
+                    q[data_id][stat] = {}
+
+                if selected_col not in q[data_id][stat]:
+                    initial_query_n = FindQueryN(main_values, n, epsilon, sensitivity)
+                    q[data_id][stat][selected_col] = initial_query_n
+
+                QueryN = q[data_id][stat][selected_col]
+
+                if QueryN < 1:
+                    result_text = f"이용하실 수 있는 쿼리 수를 모두 소진하셨습니다. (남은 쿼리: 0회)"
                 else:
-                    n = len(numeric_values)
-                    sensitivity = (max(numeric_values) - min(numeric_values)) / n
-                    epsilon = 0.7
-
-                    if "query_budget" not in request.session:
-                        request.session["query_budget"] = {}
-
-                    q = request.session["query_budget"]
-
-                    if data_id not in q:
-                        q[data_id] = {}
-
-                    if stat not in q[data_id]:
-                        q[data_id][stat] = {}
-
-                    if selected_col not in q[data_id][stat]:
-                        initial_query_n = FindQueryN(numeric_values, n, epsilon, sensitivity)
-                        q[data_id][stat][selected_col] = initial_query_n
-
-                    QueryN = q[data_id][stat][selected_col]
-
-                    if QueryN < 1:
-                        result_text = f"이용하실 수 있는 쿼리 수를 모두 소진하셨습니다."
-                    else:
-                        q[data_id][stat][selected_col] = QueryN - 1
-                        request.session["query_budget"] = q
-
+                    q[data_id][stat][selected_col] = QueryN - 1
+                    request.session["query_budget"] = q
+                    
+                    noisy_col_data = {}
+                    for col_name, numeric_values in col_data.items():
+                        sensitivity_col = (max(numeric_values) - min(numeric_values)) / len(numeric_values)
                         noisy_values = laplace_local_differential_privacy(
                             numeric_values,
                             epsilon,
-                            sensitivity
+                            sensitivity_col
                         )
+                        noisy_col_data[col_name] = [float(v) for v in noisy_values if isinstance(v, (int, float))]
+                    
+                    data_length = len(raw_data)
+                    noisy_data_with_header = [columns[:]] 
+                    
+                    for i in range(data_length):
+                        new_row = raw_data[i][:]
+                        valid_row = True
+                        for col_name in col_to_process:
+                            original_idx = col_indices[col_name]
+                            noisy_list = noisy_col_data[col_name]
+                            
+                            if i < len(noisy_list):
+                                new_row[original_idx] = noisy_list[i]
+                            else:
+                                valid_row = False
+                        
+                        if valid_row:
+                            noisy_data_with_header.append(new_row)
 
-                        cleaned_noisy = []
-                        for v in noisy_values:
-                            try:
-                                cleaned_noisy.append(float(v))
-                            except (ValueError, TypeError):
-                                continue
-
-                        if not cleaned_noisy:
-                            result_text = f"노이즈 적용 후 '{selected_col}' 컬럼에서 숫자 데이터를 찾을 수 없습니다."
-                        else:
-                            if stat == 'mean':
-                                value = calculate_mean(cleaned_noisy)
-                                result_text = f"평균({selected_col}) = {float(value):.4f}"
-                            elif stat == 'median':
-                                value = calculate_median(cleaned_noisy)
-                                result_text = f"중앙값({selected_col}) = {float(value):.4f}"
-                            elif stat == 'mode':
-                                modes = calculate_mode(cleaned_noisy)
-                                result_text = f"최빈값({selected_col}) = {list(modes)}"
-                            elif stat == 'regression':
-                                regression = calculate_mode(cleaned_noisy, selected_col_1, selected_col_2)
-                                result_text = f"선형회귀 분석결과({selected_col}) = {list(regression)}"
-
-                            result_text += f" (남은 쿼리: {q[data_id][stat][selected_col]}회)"  # 마지막에 삭제해야함
+                    if stat == 'mean':
+                        value = calculate_mean(noisy_col_data[main_col_name])
+                        result_text = f"평균({selected_col}) = {float(value):.4f}"
+                    elif stat == 'median':
+                        value = calculate_median(noisy_col_data[main_col_name])
+                        result_text = f"중앙값({selected_col}) = {float(value):.4f}"
+                    elif stat == 'mode':
+                        modes = calculate_mode(noisy_col_data[main_col_name])
+                        result_text = f"최빈값({selected_col}) = {list(modes)}"
+                    
+                    elif stat == 'regression':
+                        try:
+                            result_text = run_regression_analysis(
+                                noisy_data_with_header, 
+                                selected_col_x, 
+                                selected_col_y
+                            )
+                        except Exception as e:
+                            result_text = f"[선형회귀 오류] {e}"
+                    
+                    result_text += f"\n (남은 쿼리: {q[data_id][stat][selected_col]}회)"
 
         except Data.DoesNotExist:
             result_text = "선택한 데이터가 존재하지 않습니다."
         except Exception as e:
-            result_text = f"처리 중 오류: {e}{numeric_values}"
+            result_text = f"처리 중 오류: {e}"
 
     ctx = {
         'result': result_text,
         'columns': columns,
-        'selected_col': selected_col,
+        'selected_col_single': selected_col_single,
+        'selected_col_y': selected_col_y,
+        'selected_col_x': selected_col_x,
+        'stat': stat,
     }
 
     return render(request, 'datause3.html', ctx)

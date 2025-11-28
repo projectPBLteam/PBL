@@ -41,12 +41,16 @@ def run_regression_analysis(data, col1, col2):
     intercept = model.intercept_
     r_squared = model.score(x_np, y_np)
 
-    print("\n[회귀분석 결과]")
-    print(f"slope: {slope:.4f}")
-    print(f"intercept: {intercept:.4f}")
-    print(f"r_squared: {r_squared:.4f}")
+    result_string = f"""
+    [회귀분석 결과]
+    slope: {slope:.4f}
+    intercept: {intercept:.4f}
+    r_squared: {r_squared:.4f}
+    """
 
     plot_regression_result(x_np, y_np, model, col1, col2)
+
+    return result_string
 
 # 상관 분석 실행 및 시각화
 def run_correlation_analysis(data, col1, col2, method='pearson'):
