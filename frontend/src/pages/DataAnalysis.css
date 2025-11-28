@@ -265,3 +265,192 @@
     font-size: 20px !important;
     white-space: unset !important;
 }
+
+.column-select-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 10px 0;
+    width: 100%;
+    max-width: 380px;
+}
+
+.column-pair-wrapper {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.column-label {
+    font-size: 18px;
+    font-family: "Pretendard", Helvetica, sans-serif;
+    text-align: left;
+}
+
+.col-dropdown {
+    border: 1px solid #d0d0d0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 16px;
+    font-family: "Pretendard", Helvetica, sans-serif;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-family: "Pretendard", Helvetica, sans-serif;
+}
+
+.radio-option input {
+    width: 18px;
+    height: 18px;
+}
+
+.remaining-info {
+    margin-top: 12px;
+    font-size: 15px;
+    color: #0246cd;
+}
+
+.custom-console-section {
+    width: 100%;
+    border: 1px solid #d0d0d0;
+    border-radius: 15px;
+    padding: 20px;
+    background: #f6f8ff;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-sizing: border-box;
+}
+
+.custom-console-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.custom-console-title {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.custom-console-hint {
+    font-size: 14px;
+    color: #555;
+}
+
+.toggle-console-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    background: #0246cd;
+    color: #fff;
+    cursor: pointer;
+}
+
+.custom-code-input {
+    width: 100%;
+    border: 1px solid #cfd8ff;
+    border-radius: 10px;
+    padding: 12px;
+    font-family: "Fira Code", Consolas, monospace;
+    font-size: 15px;
+    box-sizing: border-box;
+}
+
+.custom-console-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.run-code-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    background: #0a82ff;
+    color: #fff;
+    cursor: pointer;
+}
+
+.custom-status {
+    font-size: 14px;
+    color: #0246cd;
+}
+
+.custom-log {
+    border: 1px dashed #9bb3ff;
+    border-radius: 10px;
+    padding: 12px;
+    background: #fff;
+    min-height: 120px;
+    font-family: "Fira Code", Consolas, monospace;
+    font-size: 14px;
+    white-space: pre-wrap;
+    overflow-x: auto;
+}
+
+.analysis-history {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+    max-height: 320px;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.analysis-entry {
+    border: 1px solid #dbe4ff;
+    border-radius: 12px;
+    padding: 14px;
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(2, 70, 205, 0.05);
+}
+
+.analysis-entry.empty {
+    border-style: dashed;
+    text-align: center;
+    color: #777;
+}
+
+.analysis-entry-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 14px;
+    color: #4a5568;
+    margin-bottom: 8px;
+}
+
+.analysis-entry-text {
+    font-size: 16px;
+    margin-bottom: 6px;
+    white-space: pre-wrap;
+}
+
+.analysis-entry-remaining {
+    font-size: 14px;
+    color: #0246cd;
+}
+
+.meta-timestamp {
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.meta-stat {
+    background: #edf2ff;
+    color: #1a46d9;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.meta-columns {
+    color: #1a202c;
+}

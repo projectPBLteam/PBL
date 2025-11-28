@@ -126,8 +126,8 @@ def data_list_view(request):
 
 def data_detail(request, id):
     try:
-        obj = DataModel.objects.get(id=id)
-    except DataModel.DoesNotExist:
+        obj = Data.objects.get(pk=id)
+    except Data.DoesNotExist:
         return JsonResponse({"success": False, "message": "데이터 없음!"})
 
     return JsonResponse({
@@ -567,130 +567,207 @@ from django.views.decorators.csrf import csrf_exempt
 def api_get_columns(request, data_id):
     """특정 데이터의 컬럼 목록 반환"""
     try:
-        data_obj = Data.objects.get(pk=data_id)
-        raw = _load_dynamic_table_as_list(data_obj.data_name)
-
-        if not raw or len(raw) < 1:
-            return JsonResponse({"success": False, "message": "데이터가 비어있습니다."})
-
-        columns = raw[0]
-        return JsonResponse({"success": True, "columns": columns})
-
+        data_obj = Data.objects.get(pk=data_id, user=request.user)
     except Data.DoesNotExist:
         return JsonResponse({"success": False, "message": "데이터가 존재하지 않습니다."})
+
+    raw = _load_dynamic_table_as_list(data_obj.data_name)
+    if not raw or len(raw) < 1:
+        return JsonResponse({"success": False, "message": "데이터가 비어있습니다."})
+
+    columns = raw[0]
+    return JsonResponse({"success": True, "columns": columns})
 
 
 @csrf_exempt
 @login_required
 def api_analyze(request, data_id):
-    """React에서 요청하는 분석 API (평균/중앙값/최빈값)"""
+    """React에서 요청하는 분석 API (평균/회귀 등 포함)"""
     if request.method != "POST":
         return JsonResponse({"success": False, "message": "POST만 허용됩니다."})
 
     try:
         body = json.loads(request.body)
-        stat = body.get("stat")        # mean, median, mode
-        selected_col = body.get("col") # 컬럼명
-    except:
+    except json.JSONDecodeError:
         return JsonResponse({"success": False, "message": "JSON 형식 오류"})
 
-    if not stat or not selected_col:
-        return JsonResponse({"success": False, "message": "stat 또는 col 누락"})
+    stat = body.get("stat")
+    col_single = body.get("col")
+    col_y = body.get("col_y")
+    col_x = body.get("col_x")
+
+    if not stat:
+        return JsonResponse({"success": False, "message": "stat 누락"})
+
+    dual_required = stat in {"regression", "correlation_p", "correlation_s"}
+    if dual_required:
+        if not col_y or not col_x:
+            return JsonResponse({"success": False, "message": "Y/X 컬럼을 모두 선택해주세요."})
+        target_columns = [col_y, col_x]
+        selected_key = f"{col_y} vs {col_x}"
+        main_col = col_y
+    else:
+        if not col_single:
+            return JsonResponse({"success": False, "message": "컬럼을 선택해주세요."})
+        target_columns = [col_single]
+        selected_key = col_single
+        main_col = col_single
 
     try:
-        data_obj = Data.objects.get(pk=data_id)
+        data_obj = Data.objects.get(pk=data_id, user=request.user)
     except Data.DoesNotExist:
         return JsonResponse({"success": False, "message": "데이터 없음"})
 
-    # DB에서 데이터 불러오기
-    raw_data_with_header = _load_dynamic_table_as_list(data_obj.data_name)
-    columns = raw_data_with_header[0]
-    rows = raw_data_with_header[1:]
+    raw_with_header = _load_dynamic_table_as_list(data_obj.data_name)
+    if not raw_with_header or len(raw_with_header) < 2:
+        return JsonResponse({"success": False, "message": "데이터가 비어있습니다."})
 
-    # -----------------------------
-    # 컬럼 인덱스 찾기
-    # -----------------------------
-    if selected_col not in columns:
-        return JsonResponse({"success": False, "message": "해당 컬럼 없음"})
+    columns = raw_with_header[0]
+    raw_rows = raw_with_header[1:]
 
-    col_idx = columns.index(selected_col)
+    col_data = {}
+    col_indices = {}
+    for name in target_columns:
+        if name not in columns:
+            return JsonResponse({"success": False, "message": f"컬럼 '{name}'을 찾을 수 없습니다."})
+        idx = columns.index(name)
+        col_indices[name] = idx
+        numeric_values = []
+        for row in raw_rows:
+            try:
+                numeric_values.append(float(row[idx]))
+            except (ValueError, TypeError):
+                continue
+        if not numeric_values:
+            return JsonResponse({"success": False, "message": f"컬럼 '{name}'에 숫자 데이터가 없습니다."})
+        col_data[name] = numeric_values
 
-    # -----------------------------
-    # 숫자만 파싱
-    # -----------------------------
-    numeric_values = []
-    for row in rows:
-        try:
-            numeric_values.append(float(row[col_idx]))
-        except:
-            pass
-
-    if not numeric_values:
-        return JsonResponse({"success": False, "message": "해당 컬럼에 숫자가 없음"})
-
-    # -----------------------------
-    # 쿼리 제한 처리
-    # -----------------------------
-    n = len(numeric_values)
-    sensitivity = (max(numeric_values) - min(numeric_values)) / n
+    main_values = col_data[main_col]
+    n = len(main_values)
     epsilon = 0.7
+    value_range = max(main_values) - min(main_values)
+    sensitivity = (value_range / n) if value_range else (1.0 / max(1, n))
 
-    if "query_budget" not in request.session:
-        request.session["query_budget"] = {}
-    q = request.session["query_budget"]
+    data_key = str(data_id)
+    session_budget = request.session.setdefault("query_budget", {})
+    stat_bucket = session_budget.setdefault(data_key, {}).setdefault(stat, {})
+    if selected_key not in stat_bucket:
+        stat_bucket[selected_key] = FindQueryN(main_values, n, epsilon, sensitivity)
 
-    if data_id not in q:
-        q[data_id] = {}
-    if stat not in q[data_id]:
-        q[data_id][stat] = {}
-    if selected_col not in q[data_id][stat]:
-        q[data_id][stat][selected_col] = FindQueryN(
-            numeric_values, n, epsilon, sensitivity
-        )
+    remaining = stat_bucket[selected_key]
+    if remaining < 1:
+        return JsonResponse({"success": False, "message": "이용 가능한 쿼리가 모두 소진되었습니다."})
 
-    QueryN = q[data_id][stat][selected_col]
+    stat_bucket[selected_key] = remaining - 1
+    request.session["query_budget"] = session_budget
+    request.session.modified = True
 
-    if QueryN < 1:
-        return JsonResponse({"success": False, "message": "쿼리 소진됨"})
+    noisy_col_data = {}
+    for name, numeric_values in col_data.items():
+        col_range = max(numeric_values) - min(numeric_values)
+        col_sensitivity = (col_range / len(numeric_values)) if col_range else (1.0 / max(1, len(numeric_values)))
+        noisy_values = laplace_local_differential_privacy(numeric_values, epsilon, col_sensitivity)
+        cleaned = []
+        for v in noisy_values:
+            try:
+                cleaned.append(float(v))
+            except (TypeError, ValueError):
+                continue
+        if not cleaned:
+            return JsonResponse({"success": False, "message": f"'{name}' 컬럼에서 노이즈 적용 후 값이 없습니다."})
+        noisy_col_data[name] = cleaned
 
-    q[data_id][stat][selected_col] -= 1
-    request.session["query_budget"] = q
-
-    # -----------------------------
-    # LDP 적용
-    # -----------------------------
-    noisy_values = laplace_local_differential_privacy(
-        numeric_values, epsilon, sensitivity
-    )
-
-    clean = []
-    for v in noisy_values:
-        try:
-            clean.append(float(v))
-        except:
-            pass
-
-    if not clean:
-        return JsonResponse({"success": False, "message": "노이즈 후 값 없음"})
-
-    # -----------------------------
-    # 결과 계산
-    # -----------------------------
+    result_text = ""
     if stat == "mean":
-        value = calculate_mean(clean)
+        value = calculate_mean(noisy_col_data[main_col])
+        result_text = f"평균({selected_key}) = {float(value):.4f}"
     elif stat == "median":
-        value = calculate_median(clean)
+        value = calculate_median(noisy_col_data[main_col])
+        result_text = f"중앙값({selected_key}) = {float(value):.4f}"
     elif stat == "mode":
-        modes = calculate_mode(clean)
-        value = list(modes)
+        modes = calculate_mode(noisy_col_data[main_col])
+        result_text = f"최빈값({selected_key}) = {list(modes)}"
+    elif stat == "variance":
+        value = calculate_variance(noisy_col_data[main_col])
+        result_text = f"표본분산({selected_key}) = {float(value):.4f}"
+    elif stat == "std_dev":
+        value = calculate_std_dev(noisy_col_data[main_col])
+        result_text = f"표준편차({selected_key}) = {float(value):.4f}"
+    elif stat == "sem":
+        value = calculate_sem(noisy_col_data[main_col])
+        result_text = f"표준오차({selected_key}) = {float(value):.4f}"
+    elif stat == "regression" or stat.startswith("correlation_"):
+        noisy_data_with_header = [columns[:]]
+        for row_idx in range(len(raw_rows)):
+            new_row = list(raw_rows[row_idx])
+            valid_row = True
+            for name in target_columns:
+                source_list = noisy_col_data[name]
+                col_idx = col_indices[name]
+                if row_idx < len(source_list):
+                    new_row[col_idx] = source_list[row_idx]
+                else:
+                    valid_row = False
+                    break
+            if valid_row:
+                noisy_data_with_header.append(new_row)
+
+        if stat == "regression":
+            result_text = run_regression_analysis(noisy_data_with_header, col_x, col_y)
+        else:
+            method = "pearson" if stat == "correlation_p" else "spearman"
+            result_text = run_correlation_analysis(noisy_data_with_header, col_x, col_y, method)
     else:
-        return JsonResponse({"success": False, "message": "stat 잘못됨"})
+        return JsonResponse({"success": False, "message": "지원하지 않는 stat 입니다."})
 
     return JsonResponse({
         "success": True,
-        "result": value,
-        "remaining": q[data_id][stat][selected_col]
+        "result": result_text,
+        "remaining": stat_bucket[selected_key]
     })
+
+
+@csrf_exempt
+@login_required
+def api_custom_console(request, data_id):
+    """React에서 사용자 정의 코드를 실행하거나 로그를 반환"""
+    try:
+        data_obj = Data.objects.get(pk=data_id, user=request.user)
+    except Data.DoesNotExist:
+        return JsonResponse({"success": False, "message": "데이터 없음"})
+
+    raw_with_header = _load_dynamic_table_as_list(data_obj.data_name)
+    if not raw_with_header or len(raw_with_header) < 2:
+        return JsonResponse({"success": False, "message": "데이터가 비어있습니다."})
+
+    columns = raw_with_header[0]
+    raw_rows = raw_with_header[1:]
+
+    session_history = request.session.get("custom_console_history", {})
+    data_key = str(data_id)
+    current_log = session_history.get(data_key, "")
+
+    if request.method == "GET":
+        return JsonResponse({"success": True, "log": current_log})
+
+    if request.method != "POST":
+        return JsonResponse({"success": False, "message": "지원하지 않는 메서드입니다."})
+
+    try:
+        body = json.loads(request.body)
+        code = body.get("code", "")
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "message": "JSON 형식 오류"})
+
+    message, updated_log = _handle_custom_code(
+        request,
+        data_key,
+        code,
+        columns,
+        raw_rows,
+        current_log,
+    )
+    return JsonResponse({"success": True, "message": message, "log": updated_log})
 
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required

@@ -3,6 +3,7 @@ from .views import auth_view, signup_view
 from . import views
 
 urlpatterns = [
+    # 기본 페이지/인증
     path("", views.main, name='main'),
     path("fileupload/", views.upload_view),
     path("dataupload/", views.dataUpload),
@@ -14,12 +15,14 @@ urlpatterns = [
     path('login/', views.auth_view, name='login'),
     path('signup/', signup_view, name='signup'),
     path('logout/', views.user_logout, name='logout'),
+
+    # 템플릿에서 쓰는 데이터 목록/업로드
+    path('data-list/', views.data_list_api, name='data_list_api'),
+    path('data-upload/', views.upload_view, name='data_upload'),
+
+    # React용 JSON API
     path('api/data-list/', views.data_list_view, name='data_list'),
-     # 분석용 API
-    path("api/data/<int:data_id>/columns/", views.api_get_columns, name="data_columns"),
-    path("api/data/<int:data_id>/analyze/", views.api_analyze, name="data_analyze"),
-
-    # 다른 앱 URL도 여기에 추가 가능
-    path("", views.main, name="main"),
-
+    path("api/data/<uuid:data_id>/columns/", views.api_get_columns, name="data_columns"),
+    path("api/data/<uuid:data_id>/analyze/", views.api_analyze, name="data_analyze_api"),
+    path("api/data/<uuid:data_id>/custom-console/", views.api_custom_console, name="data_custom_console"),
 ]

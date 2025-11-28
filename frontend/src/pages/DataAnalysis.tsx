@@ -1,86 +1,206 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./DataAnalysis.css";
 
+const STAT_OPTIONS = [
+    { label: "평균", value: "mean", type: "single" },
+    { label: "중앙값", value: "median", type: "single" },
+    { label: "최빈값", value: "mode", type: "single" },
+    { label: "표본분산", value: "variance", type: "single" },
+    { label: "표준편차", value: "std_dev", type: "single" },
+    { label: "표준오차", value: "sem", type: "single" },
+    { label: "선형회귀", value: "regression", type: "pair" },
+    { label: "상관분석 (피어슨)", value: "correlation_p", type: "pair" },
+    { label: "상관분석 (스피어만)", value: "correlation_s", type: "pair" },
+] as const;
+
+type AnalysisEntry = {
+    id: number;
+    timestamp: string;
+    statLabel: string;
+    columnsLabel: string;
+    text: string;
+    remaining: number | null;
+};
+
+const formatTimestamp = (date = new Date()) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+        date.getDate()
+    ).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(
+        date.getMinutes()
+    ).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
+
 export default function DataAnalysis() {
     const navigate = useNavigate();
-    const handleBack = () => navigate('/data-select');
-
-    // 뒤 화면에서 dataId 넘겨받기
     const location = useLocation();
     const dataId = location.state?.dataId;
 
     const [columns, setColumns] = useState<string[]>([]);
+    const [selectedStat, setSelectedStat] = useState<string>(STAT_OPTIONS[0].value);
     const [selectedCol, setSelectedCol] = useState<string>("");
-    const [selectedStat, setSelectedStat] = useState<string>("평균");
-    const statsOptions = ["평균", "중앙값", "최빈값"];
-    const [analysisResult, setAnalysisResult] = useState<string>("");
+    const [selectedColY, setSelectedColY] = useState<string>("");
+    const [selectedColX, setSelectedColX] = useState<string>("");
+    const [resultHistory, setResultHistory] = useState<AnalysisEntry[]>([]);
+    const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+    const [customCode, setCustomCode] = useState<string>("");
+    const [customLog, setCustomLog] = useState<string>("");
+    const [customStatus, setCustomStatus] = useState<string>("");
+    const [showCustomConsole, setShowCustomConsole] = useState<boolean>(false);
 
-    // 🚨 페이지 들어오면 컬럼 목록 가져오기
-    useEffect(() => {
+    const isPairStat = useMemo(
+        () => STAT_OPTIONS.find((opt) => opt.value === selectedStat)?.type === "pair",
+        [selectedStat]
+    );
+
+    const fetchColumns = useCallback(() => {
         if (!dataId) return;
-
         fetch(`http://localhost:8000/api/data/${dataId}/columns/`, {
             credentials: "include",
         })
             .then((res) => res.json())
             .then((json) => {
-                if (json.success) {
-                    setColumns(json.columns);
-                    if (json.columns.length > 0) {
-                        setSelectedCol(json.columns[0]);
-                    }
+                if (!json.success) {
+                    alert(json.message || "컬럼 정보를 불러오지 못했습니다.");
+                    return;
+                }
+                const fetched: string[] = json.columns || [];
+                setColumns(fetched);
+                if (fetched.length > 0) {
+                    setSelectedCol((prev) => prev || fetched[0]);
+                    setSelectedColY((prev) => prev || fetched[0]);
+                    const fallbackX = fetched.length > 1 ? fetched[1] : fetched[0];
+                    setSelectedColX((prev) => prev || fallbackX);
                 } else {
-                    alert(json.message);
+                    setSelectedCol("");
+                    setSelectedColY("");
+                    setSelectedColX("");
                 }
             })
-            .catch(() => {
-                alert("컬럼 정보를 불러오는 중 오류가 발생했습니다.");
-            });
+            .catch(() => alert("컬럼 정보를 불러오는 중 오류가 발생했습니다."));
     }, [dataId]);
 
-    // 🎯 통계 요청 함수
-    const handleAnalyze = () => {
-        if (!selectedCol) {
-            alert("컬럼을 선택해주세요.");
-            return;
-        }
+    const fetchConsoleLog = useCallback(() => {
+        if (!dataId) return;
+        fetch(`http://localhost:8000/api/data/${dataId}/custom-console/`, {
+            credentials: "include",
+        })
+            .then((res) => res.json())
+            .then((json) => {
+                if (json.success) {
+                    setCustomLog(json.log || "");
+                }
+            })
+            .catch(() => setCustomLog(""));
+    }, [dataId]);
 
-        const statMap: any = {
-            "평균": "mean",
-            "중앙값": "median",
-            "최빈값": "mode"
-        };
+    useEffect(() => {
+        if (!dataId) return;
+        fetchColumns();
+        fetchConsoleLog();
+    }, [dataId, fetchColumns, fetchConsoleLog]);
+
+    const handleBack = () => navigate("/data-select");
+
+    const validateSelections = () => {
+        if (!dataId) {
+            alert("유효한 데이터가 선택되지 않았습니다.");
+            return false;
+        }
+        if (isPairStat) {
+            if (!selectedColY || !selectedColX) {
+                alert("Y/X 컬럼을 모두 선택해주세요.");
+                return false;
+            }
+            if (selectedColY === selectedColX) {
+                alert("Y와 X는 서로 다른 컬럼을 선택해야 합니다.");
+                return false;
+            }
+        } else if (!selectedCol) {
+            alert("컬럼을 선택해주세요.");
+            return false;
+        }
+        return true;
+    };
+
+    const handleAnalyze = () => {
+        if (!validateSelections() || !dataId) return;
+        setIsAnalyzing(true);
+        const payload: Record<string, string> = { stat: selectedStat };
+        if (isPairStat) {
+            payload.col_y = selectedColY;
+            payload.col_x = selectedColX;
+        } else if (selectedCol) {
+            payload.col = selectedCol;
+        }
 
         fetch(`http://localhost:8000/api/data/${dataId}/analyze/`, {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                stat: statMap[selectedStat],
-                col: selectedCol
-            }),
+            body: JSON.stringify(payload),
         })
             .then((res) => res.json())
             .then((json) => {
                 if (json.success) {
-                    setAnalysisResult(json.result);
+                    const statMeta = STAT_OPTIONS.find((opt) => opt.value === selectedStat);
+                    const statLabel = statMeta?.label ?? selectedStat;
+                    const columnsLabel = isPairStat
+                        ? `${selectedColY} vs ${selectedColX}`
+                        : selectedCol;
+                    const entry: AnalysisEntry = {
+                        id: Date.now(),
+                        timestamp: formatTimestamp(),
+                        statLabel,
+                        columnsLabel,
+                        text: json.result ?? "결과 없음",
+                        remaining:
+                            typeof json.remaining === "number" ? json.remaining : null,
+                    };
+                    setResultHistory((prev) => [...prev, entry]);
                 } else {
-                    alert(json.message);
+                    alert(json.message || "분석 중 오류가 발생했습니다.");
                 }
             })
-            .catch(() => {
-                alert("분석 중 오류가 발생했습니다.");
-            });
+            .catch(() => alert("분석 중 오류가 발생했습니다."))
+            .finally(() => setIsAnalyzing(false));
     };
 
-    // CSV 다운로드 함수
+    const handleRunCustomCode = () => {
+        if (!dataId) {
+            alert("데이터를 먼저 선택해주세요.");
+            return;
+        }
+        setCustomStatus("실행 중...");
+        fetch(`http://localhost:8000/api/data/${dataId}/custom-console/`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: customCode }),
+        })
+            .then((res) => res.json())
+            .then((json) => {
+                if (json.success) {
+                    setCustomStatus(json.message || "실행 완료");
+                    setCustomLog(json.log || "");
+                    if (!showCustomConsole) setShowCustomConsole(true);
+                } else {
+                    setCustomStatus(json.message || "실행 실패");
+                }
+            })
+            .catch(() => setCustomStatus("실행 실패"));
+    };
+
     const handleExportCSV = () => {
-        const csvContent = `"${analysisResult}"`;
+        const rows =
+            resultHistory.length === 0
+                ? [`"${formatTimestamp()}","결과 없음","",""`]
+                : resultHistory.map((entry) => {
+                      const safeText = String(entry.text).replace(/"/g, '""');
+                      return `"${entry.timestamp}","${entry.statLabel}","${entry.columnsLabel}","${safeText}"`;
+                  });
+        const csvContent = ["timestamp,stat,columns,result", ...rows].join("\n");
         const bom = "\uFEFF";
-
         const blob = new Blob([bom + csvContent], { type: "text/csv;charset=utf-8;" });
-
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.href = url;
@@ -89,74 +209,173 @@ export default function DataAnalysis() {
         URL.revokeObjectURL(url);
     };
 
+    const renderColumnSelectors = () => {
+        if (isPairStat) {
+            return (
+                <div className="column-pair-wrapper">
+                    <div className="column-select-box">
+                        <label className="column-label">종속 변수 (Y)</label>
+                        <select
+                            className="col-dropdown"
+                            value={selectedColY}
+                            onChange={(e) => setSelectedColY(e.target.value)}
+                        >
+                            {columns.map((col) => (
+                                <option key={col} value={col}>
+                                    {col}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="column-select-box">
+                        <label className="column-label">독립 변수 (X)</label>
+                        <select
+                            className="col-dropdown"
+                            value={selectedColX}
+                            onChange={(e) => setSelectedColX(e.target.value)}
+                        >
+                            {columns.map((col) => (
+                                <option key={col} value={col}>
+                                    {col}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="column-select-box">
+                <label className="column-label">컬럼 선택</label>
+                <select
+                    className="col-dropdown"
+                    value={selectedCol}
+                    onChange={(e) => setSelectedCol(e.target.value)}
+                >
+                    {columns.map((col) => (
+                        <option key={col} value={col}>
+                            {col}
+                        </option>
+                    ))}
+                </select>
+            </div>
+        );
+    };
 
     return (
         <div className="data-analysis-screen">
             <div className="component-66-wrapper">
-                <button className="back-button" onClick={handleBack}>← 뒤로가기</button>
+                <button className="back-button" onClick={handleBack}>
+                    ← 뒤로가기
+                </button>
             </div>
 
             <div className="text-wrapper-4">데이터 이용</div>
 
             <div className="div-2">
                 <div className="div-3">
-                    <div className="text-wrapper-5">통계 선택</div>
+                    <div className="text-wrapper-5">통계 옵션</div>
 
-                    {/* 📌 컬럼 선택 추가!! */}
-                    <div className="column-select-box">
-                        <label className="text-wrapper-5">컬럼 선택</label>
-                        <select
-                            className="col-dropdown"
-                            value={selectedCol}
-                            onChange={(e) => setSelectedCol(e.target.value)}
-                        >
-                            {columns.map((col) => (
-                                <option key={col} value={col}>{col}</option>
-                            ))}
-                        </select>
-                    </div>
+                    {renderColumnSelectors()}
 
-                    {/* 📌 통계 선택 라디오 버튼 */}
                     <div className="div-4">
-                        {statsOptions.map((stat) => (
-                            <label key={stat} className="radio-option">
+                        {STAT_OPTIONS.map((stat) => (
+                            <label key={stat.value} className="radio-option">
                                 <input
                                     type="radio"
                                     name="statistics"
-                                    value={stat}
-                                    checked={selectedStat === stat}
-                                    onChange={() => setSelectedStat(stat)}
+                                    value={stat.value}
+                                    checked={selectedStat === stat.value}
+                                    onChange={() => setSelectedStat(stat.value)}
                                 />
-                                {stat}
+                                {stat.label}
                             </label>
                         ))}
                     </div>
 
-                    {/* 🎯 분석 버튼 */}
                     <div className="component-69-wrapper">
                         <button
                             className="component-69-instance-component-69-2"
                             onClick={handleAnalyze}
+                            disabled={isAnalyzing}
                         >
-                            확인
+                            {isAnalyzing ? "분석 중..." : "확인"}
                         </button>
                     </div>
                 </div>
 
-                {/* 결과 */}
                 <div className="div-5">
                     <div className="text-wrapper-6">통계 처리 결과</div>
 
                     <div className="div-6">
                         <div className="rectangle" />
-                        <div className="text-wrapper-7">
-                            {analysisResult || "결과 없음"}
+                        <div className="analysis-history">
+                            {resultHistory.length === 0 ? (
+                                <div className="analysis-entry empty">결과 없음</div>
+                            ) : (
+                                resultHistory.map((entry) => (
+                                    <div key={entry.id} className="analysis-entry">
+                                        <div className="analysis-entry-meta">
+                                            <span className="meta-timestamp">{entry.timestamp}</span>
+                                            <span className="meta-stat">{entry.statLabel}</span>
+                                            <span className="meta-columns">{entry.columnsLabel}</span>
+                                        </div>
+                                        <div className="analysis-entry-text">{entry.text}</div>
+                                        {entry.remaining !== null && (
+                                            <div className="analysis-entry-remaining">
+                                                남은 쿼리: {entry.remaining}회
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
                         </div>
+                    </div>
+
+                    <div className="custom-console-section">
+                        <div className="custom-console-header">
+                            <div>
+                                <div className="custom-console-title">직접 코드 입력</div>
+                                <div className="custom-console-hint">
+                                    pandas DataFrame(df)와 numpy(np)를 사용할 수 있어요.
+                                </div>
+                            </div>
+                            <button
+                                className="toggle-console-btn"
+                                onClick={() => setShowCustomConsole((prev) => !prev)}
+                            >
+                                {showCustomConsole ? "닫기" : "열기"}
+                            </button>
+                        </div>
+
+                        {showCustomConsole && (
+                            <>
+                                <textarea
+                                    className="custom-code-input"
+                                    rows={6}
+                                    placeholder="예) df.describe()"
+                                    value={customCode}
+                                    onChange={(e) => setCustomCode(e.target.value)}
+                                />
+                                <div className="custom-console-actions">
+                                    <button
+                                        className="run-code-btn"
+                                        onClick={handleRunCustomCode}
+                                    >
+                                        실행
+                                    </button>
+                                    <span className="custom-status">{customStatus}</span>
+                                </div>
+                                <div className="custom-log">
+                                    {customLog ? <pre>{customLog}</pre> : "실행 기록이 없습니다."}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* CSV 다운로드 */}
             <div className="view-wrapper">
                 <button className="view-2-view-3" onClick={handleExportCSV}>
                     결과 반출
