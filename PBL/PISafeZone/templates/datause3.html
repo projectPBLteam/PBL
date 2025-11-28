@@ -15,16 +15,39 @@
                         <label><input type="radio" name="stat" value="mean" {% if request.GET.stat == 'mean' %}checked{% endif %}> 평균</label>
                         <label><input type="radio" name="stat" value="median" {% if request.GET.stat == 'median' %}checked{% endif %}> 중앙값</label>
                         <label><input type="radio" name="stat" value="mode" {% if request.GET.stat == 'mode' %}checked{% endif %}> 최빈값</label>
-                        <div style="margin-top:8px;">
+                        <label><input type="radio" name="stat" value="regression" {% if request.GET.stat == 'regression' %}checked{% endif %}> 선형회귀 분석</label>
+                        
+                        <div id="single_column_selector" style="margin-top:8px; display:none;"> 
                             <label>대상 컬럼</label>
-                            <select name="col" style="width:100%;">
+                            <select name="col_single" style="width:100%;">
                                 {% for c in columns %}
-                                    <option value="{{ c }}" {% if selected_col == c %}selected{% endif %}>{{ c }}</option>
+                                    <option value="{{ c }}" {% if selected_col_single == c %}selected{% endif %}>{{ c }}</option>
                                 {% endfor %}
                             </select>
                         </div>
+
+                        <!--선형회귀용-->
+                        <div id="regression_column_selectors" style="display:none;">
+                            <div style="margin-top:8px;">
+                                <label>종속 변수 (Y)</label>
+                                <select name="col_y" style="width:100%;">
+                                    {% for c in columns %}
+                                        <option value="{{ c }}" {% if selected_col_y == c %}selected{% endif %}>{{ c }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        <div style="margin-top:8px;">
+                                <label>독립 변수 (X)</label>
+                                <select name="col_x" style="width:100%;">
+                                    {% for c in columns %}
+                                        <option value="{{ c }}" {% if selected_col_x == c %}selected{% endif %}>{{ c }}</option> 
+                                    {% endfor %}
+                                </select>
+                            </div>
+
                         <input type="hidden" name="data" value="{{ request.GET.data }}">
                     </div>
+        
                     <div style="margin-top:12px; text-align:right;">
                         <button type="submit">확인</button>
                     </div>
@@ -40,6 +63,38 @@
         <div style="margin-top:20px; text-align:right;">
             <button type="button" onclick="history.back()">결과 반출</button>
         </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const radioButtons = document.querySelectorAll('input[name="stat"]');
+                // 단일 선택 영역
+                const singleSelector = document.getElementById('single_column_selector');
+                // 회귀 분석 그룹 영역
+                const regressionSelectors = document.getElementById('regression_column_selectors');
+
+                function toggleColumnSelectors() {
+                    const selectedStat = document.querySelector('input[name="stat"]:checked').value;
+
+                    if (selectedStat === 'regression') {
+                        // 회귀 분석 선택 시: 두 개(Y, X)만 표시
+                        singleSelector.style.display = 'none';
+                        regressionSelectors.style.display = 'block';
+                    } else {
+                        // 그 외 선택 시: 단일 컬럼만 표시
+                        regressionSelectors.style.display = 'none';
+                        singleSelector.style.display = 'block';
+                    }
+                }
+
+                // 모든 라디오 버튼에 이벤트 리스너를 추가
+                radioButtons.forEach(radio => {
+                    radio.addEventListener('change', toggleIndependentSelector);
+                });
+
+                // 페이지 로드 시 초기 상태를 한 번 확인하여 설정
+                toggleIndependentSelector();
+            });
+        </script>
 
     </body>
 </html>

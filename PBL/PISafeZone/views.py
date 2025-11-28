@@ -240,8 +240,11 @@ def datause3(request):
                             elif stat == 'mode':
                                 modes = calculate_mode(cleaned_noisy)
                                 result_text = f"최빈값({selected_col}) = {list(modes)}"
+                            elif stat == 'regression':
+                                regression = calculate_mode(cleaned_noisy, selected_col_1, selected_col_2)
+                                result_text = f"선형회귀 분석결과({selected_col}) = {list(regression)}"
 
-                            result_text += f" (남은 쿼리: {q[data_id][stat][selected_col]}회)"
+                            result_text += f" (남은 쿼리: {q[data_id][stat][selected_col]}회)"  # 마지막에 삭제해야함
 
         except Data.DoesNotExist:
             result_text = "선택한 데이터가 존재하지 않습니다."
