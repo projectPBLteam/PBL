@@ -1,12 +1,11 @@
 from django.shortcuts import render, redirect
-# 로그인한 사용자만 업로드할 수 있도록 @login_required 추가
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from .forms import UploadFileForm
-from django.db import connection    #DB 커서 접근용
+from django.db import connection   
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from .forms import EmailLoginForm, RegisterForm
-import re   #파일 이름 정제용
+import re  
 from django.contrib import messages
 from .models import Data, UsageHistory, CustomUser
 import contextlib
@@ -22,24 +21,18 @@ from modules.statistics_basic import *
 from modules.statistics_advanced import run_regression_analysis, run_correlation_analysis
 from modules.user_input import FindQueryN
 
-# CSRF 
+
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login
 import json
 from django.contrib.auth.decorators import login_required
- 
-# 파일 이름을 DB 테이블 이름으로 사용할 수 있도록 정제하는 헬퍼 함수
+
 def _sanitize_table_name(filename):
-    """파일 이름에서 확장자를 제거하고, DB 테이블명으로 사용 불가능한 문자를 언더스코어_로 대체"""
-    #확장자 제거
     name_without_extension = filename.rsplit('.', 1)[0]
-    #특수 문자(공백 포함)를 언더스코어_로 대체
     sanitized_name = re.sub(r'[^a-zA-Z0-9_]', '_', name_without_extension)
-    #테이블명은 소문자로 변환
     return sanitized_name.lower()
 
 def main(request):
-    #  return HttpResponse("csv 파일을 입력받을 페이지입니다.")
     return render(request, 'main.html')
 
 def info_hub(request):
@@ -47,11 +40,7 @@ def info_hub(request):
 
 @login_required
 def dataUpload(request):
-    # 업로드 첫 페이지는 사용하지 않고 바로 page2로 이동
     return redirect('dataUploadNext')
-    # datainput = request.GET['datainput']
-    # datainput = request.POST['datainput']
-    # return HttpResponse("Other Page test = " + datainput)
 
 @login_required
 def dataUploadNext(request):
@@ -59,7 +48,7 @@ def dataUploadNext(request):
     return render(request, 'dataupload2.html',  {'form':form})
 
 @login_required
-@csrf_exempt  # fetch로 호출할 때 CSRF 문제 제거
+@csrf_exempt
 def upload_view(request):
     if request.method == 'POST':
         uploaded_file = request.FILES.get('file')
@@ -142,7 +131,6 @@ def data_detail(request, id):
 
 @login_required
 def datause(request):
-    # 중간 페이지 없이 바로 목록 페이지로 이동
     return redirect('datause2')
 
 @login_required
@@ -260,11 +248,26 @@ def _execute_user_code(code, df, columns):
         "columns": columns,
     }
     try:
-        compiled = compile(code, "<사용자 코드>", "exec")
+        try:
+            compiled = compile(code, "<사용자 코드>", "eval")
+            is_expression = True
+        except SyntaxError:
+            compiled = compile(code, "<사용자 코드>", "exec")
+            is_expression = False
+
         with contextlib.redirect_stdout(output_buffer):
-            exec(compiled, safe_globals, {})
+            
+            if is_expression:
+                result = eval(compiled, safe_globals, {})
+                if result is not None:
+                    print(result) 
+            else:
+                exec(compiled, safe_globals, {})
+
         output = output_buffer.getvalue().strip()
-        return output if output else "코드가 성공적으로 실행되었습니다."
+        
+        return output if output else "코드가 성공적으로 실행되었습니다. (출력 없음)"
+            
     except Exception:
         output = output_buffer.getvalue()
         output += "\n" + traceback.format_exc(limit=5)
@@ -276,7 +279,6 @@ def _handle_custom_code(request, data_id, code, columns, raw_rows, current_log):
     if not trimmed_code:
         return "실행할 코드를 입력해주세요.", current_log
 
-    df = _build_dataframe(columns, raw_rows)
     numeric_seed = _select_numeric_seed(columns, raw_rows)
     allowed, remaining = _consume_query_budget(
         request,
@@ -290,8 +292,78 @@ def _handle_custom_code(request, data_id, code, columns, raw_rows, current_log):
         entry = f">>> {trimmed_code}\n[예산 부족] 이용 가능한 쿼리가 없습니다.\n"
         updated_log = _append_console_log(request.session, data_id, entry)
         return "이용하실 수 있는 쿼리 수를 모두 소진하셨습니다. (남은 쿼리: 0회)", updated_log
+    
+    epsilon = 0.7 
+    all_indices = {col: i for i, col in enumerate(columns)}
+    noisy_col_data = {}
+    
+    for name in columns:
+        if name == 'id':
+            continue 
 
-    execution_output = _execute_user_code(trimmed_code, df, columns)
+        is_integer_column = True
+        raw_values = []
+        
+        for row in raw_rows: 
+            try:
+                val = row[all_indices[name]]
+                float_val = float(val)
+                
+                if float_val != int(float_val):
+                    is_integer_column = False
+                    
+                raw_values.append(float_val)
+            except (ValueError, TypeError, IndexError):
+                is_integer_column = False
+                continue
+
+        if len(raw_values) > 1: 
+            n = len(raw_values)
+            value_range = max(raw_values) - min(raw_values)
+            col_sensitivity = (value_range / n) if value_range else (1.0 / max(1, n))
+            noisy_values = laplace_local_differential_privacy(raw_values, epsilon, col_sensitivity)
+            cleaned = []
+            for v in noisy_values:
+                try:
+                    float_v = float(v)
+                    
+                    if is_integer_column:
+                        cleaned.append(int(round(float_v))) 
+                    else:
+                        cleaned.append(float_v)
+                        
+                except (TypeError, ValueError):
+                    continue
+            noisy_col_data[name] = cleaned
+            
+        elif len(raw_values) == 1:
+            if is_integer_column:
+                noisy_col_data[name] = [int(raw_values[0])]
+            else:
+                noisy_col_data[name] = raw_values
+
+    noisy_rows = []
+    for row_idx in range(len(raw_rows)):
+        new_row = list(raw_rows[row_idx])
+        valid_row = True
+        
+        for name in columns:
+            col_idx = all_indices[name]
+            
+            if name in noisy_col_data:
+                source_list = noisy_col_data[name]
+                if row_idx < len(source_list):
+                    new_row[col_idx] = source_list[row_idx]
+                else:
+                    valid_row = False 
+                    break
+            
+        if valid_row:
+            noisy_rows.append(new_row)
+
+    dp_df = _build_dataframe(columns, noisy_rows)
+    execution_output = _execute_user_code(trimmed_code, dp_df, columns)
+    
     entry = f">>> {trimmed_code}\n{execution_output}\n(남은 쿼리: {remaining}회)\n"
     updated_log = _append_console_log(request.session, data_id, entry)
     return "사용자 코드가 실행되었습니다. 아래 콘솔에서 결과를 확인하세요.", updated_log
@@ -513,7 +585,7 @@ def datause3(request):
     return _render_response()
 
 
-@csrf_exempt  # CSRF는 React에서 처리하므로 여기서는 임시로 제외
+@csrf_exempt 
 def auth_view(request):
     if request.method != "POST":
         return JsonResponse({"success": False, "message": "POST 요청만 허용됩니다."})
@@ -525,10 +597,9 @@ def auth_view(request):
     except json.JSONDecodeError:
         return JsonResponse({"success": False, "message": "잘못된 요청입니다."})
 
-    # Django 기본 authenticate 사용 (User 모델이 이메일 기반이면 커스터마이징 필요)
     user = authenticate(request, username=email, password=password)
     if user:
-        login(request, user)  # 세션 로그인
+        login(request, user) 
         return JsonResponse({"success": True})
     else:
         return JsonResponse({"success": False, "message": "아이디 또는 비밀번호가 틀렸습니다."})
@@ -541,13 +612,13 @@ def signup_view(request):
         data = json.loads(request.body)
         email = data.get("email")
         password = data.get("password")
-        username = email  # username에 email을 그대로 쓰거나 필요하면 분리
+        username = email 
 
         if User.objects.filter(email=email).exists():
             return JsonResponse({"success": False, "message": "이미 가입된 이메일입니다."})
 
         user = User.objects.create_user(email=email, password=password)
-        login(request, user)  # 회원가입 직후 바로 로그인
+        login(request, user)
         return JsonResponse({"success": True})
 
     return JsonResponse({"success": False, "message": "POST 요청만 허용돼요."})
@@ -556,9 +627,6 @@ def user_logout(request):
     logout(request)
     return redirect('main')
 
-# -----------------------------
-# 🔥 React용 분석 API (JSON 전용)
-# -----------------------------
 from django.views.decorators.csrf import csrf_exempt
 
 @login_required
@@ -584,12 +652,9 @@ def api_increment_usage(request, data_id):
     try:
         from django.db.models import F
         data_obj = Data.objects.get(pk=data_id, user=request.user)
-        # 원자적 업데이트로 동시성 문제 방지
         Data.objects.filter(pk=data_id, user=request.user).update(data_usage=F('data_usage') + 1)
-        # 업데이트된 객체 다시 가져오기
         data_obj.refresh_from_db()
         
-        # UsageHistory에도 기록
         UsageHistory.objects.create(
             usage_type="analyze",
             user=request.user,

@@ -1,7 +1,36 @@
 {/*.csv 파일인지 검증하는 코드 추가*/}
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from "react-router-dom"
 import "./DataUpload.css"
+
+interface NotificationProps {
+  type: 'success' | 'error' | null;
+  message: string;
+}
+
+function CustomNotification({ type, message }: NotificationProps) {
+  if (!type || !message) return null;
+
+  const style = {
+    position: 'fixed' as 'fixed',
+    top: '20px',
+    right: '20px',
+    padding: '15px 25px',
+    borderRadius: '8px',
+    color: 'white',
+    fontWeight: 'bold' as 'bold',
+    zIndex: 1000,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+    backgroundColor: type === 'success' ? '#28a745' : '#dc3545', 
+    transition: 'opacity 0.3s ease-in-out',
+  };
+
+  return (
+    <div style={style}>
+      {type === 'success' ? '✅ 성공: ' : '❌ 오류: '} {message}
+    </div>
+  );
+}
 
 export default function DataUpload() {
   const navigate = useNavigate()
@@ -12,26 +41,36 @@ export default function DataUpload() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [fileName, setFileName] = useState('')
   const [fileSelected, setFileSelected] = useState(false)
+  const [notification, setNotification] = useState<NotificationProps>({ type: null, message: '' });
+
+  useEffect(() => {
+    if (notification.type) {
+      const timer = setTimeout(() => {
+        setNotification({ type: null, message: '' });
+      }, 3500); // 3.5초 후 알림 자동 닫기
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click()
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNotification({ type: null, message: '' });
+
     const file = e.target.files?.[0];
     if (file) {
       const name = file.name.trim().toLowerCase(); // 공백 제거 + 소문자 변환
   
       if (!name.endsWith(".csv")) {
-        alert(".csv 파일만 업로드할 수 있습니다.");
-        // 파일 입력 초기화
+        setNotification({ type: 'error', message: "CSV 파일 형식이 아닙니다. (.csv 파일만 지원합니다)" });
         e.target.value = "";
         setFileName("");
         setFileSelected(false);
         return;
       }
   
-      // 통과 시 상태 업데이트
       setFileName(file.name);
       setFileSelected(true);
     }
@@ -46,23 +85,24 @@ export default function DataUpload() {
     const response = await fetch("http://localhost:8000/fileupload/", {
       method: "POST",
       body: formData,
-      credentials: "include", // 로그인 세션 포함
+      credentials: "include",
     });
 
     const data = await response.json();
     console.log("백엔드 응답:", data);
 
     if (data.success) {
-      alert("데이터가 업로드되었습니다!");
-      navigate('/main');
+      setNotification({ type: 'success', message: "데이터가 성공적으로 업로드되었습니다!" });
+      setTimeout(() => navigate('/main'), 1000);
     } else {
-      alert(data.message || "업로드 실패");
+      setNotification({ type: 'error', message: data.message || "업로드 실패: 서버에서 알 수 없는 오류가 발생했습니다." });
     }
   };
 
 
   return (
     <div className="data-upload-screen">
+      <CustomNotification type={notification.type} message={notification.message} />
       <div className="component-51-wrapper">
         <button className="back-button" onClick={handleBack}>← 뒤로가기</button>
       </div>
