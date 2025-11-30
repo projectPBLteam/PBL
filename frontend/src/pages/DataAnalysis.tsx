@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./DataAnalysis.css";
 
@@ -46,6 +46,7 @@ export default function DataAnalysis() {
     const [customLog, setCustomLog] = useState<string>("");
     const [customStatus, setCustomStatus] = useState<string>("");
     const [showCustomConsole, setShowCustomConsole] = useState<boolean>(false);
+    const hasIncrementedUsage = useRef<boolean>(false);
 
     const isPairStat = useMemo(
         () => STAT_OPTIONS.find((opt) => opt.value === selectedStat)?.type === "pair",
@@ -95,9 +96,35 @@ export default function DataAnalysis() {
 
     useEffect(() => {
         if (!dataId) return;
+        
+        // 데이터 분석 화면 진입 시 이용 횟수 증가 (한 번만 실행)
+        if (!hasIncrementedUsage.current) {
+            hasIncrementedUsage.current = true;
+            fetch(`http://localhost:8000/api/data/${dataId}/increment-usage/`, {
+                method: "POST",
+                credentials: "include",
+            })
+                .then((res) => res.json())
+                .then((json) => {
+                    if (!json.success) {
+                        console.error("이용 횟수 증가 실패:", json.message);
+                    } else {
+                        console.log("이용 횟수 증가 성공:", json.usageCount);
+                    }
+                })
+                .catch((err) => {
+                    console.error("이용 횟수 증가 중 오류:", err);
+                });
+        }
+        
         fetchColumns();
         fetchConsoleLog();
     }, [dataId, fetchColumns, fetchConsoleLog]);
+    
+    // dataId가 변경되면 hasIncrementedUsage 리셋
+    useEffect(() => {
+        hasIncrementedUsage.current = false;
+    }, [dataId]);
 
     const handleBack = () => navigate("/data-select");
 

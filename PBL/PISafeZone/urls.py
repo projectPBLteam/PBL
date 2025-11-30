@@ -22,7 +22,9 @@ urlpatterns = [
 
     # React용 JSON API
     path('api/data-list/', views.data_list_view, name='data_list'),
+    path('api/data-detail/<uuid:id>/', views.data_detail, name='data_detail'),
     path("api/data/<uuid:data_id>/columns/", views.api_get_columns, name="data_columns"),
+    path("api/data/<uuid:data_id>/increment-usage/", views.api_increment_usage, name="data_increment_usage"),
     path("api/data/<uuid:data_id>/analyze/", views.api_analyze, name="data_analyze_api"),
     path("api/data/<uuid:data_id>/custom-console/", views.api_custom_console, name="data_custom_console"),
 ]

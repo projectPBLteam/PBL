@@ -36,8 +36,7 @@ def _sanitize_table_name(filename):
     #특수 문자(공백 포함)를 언더스코어_로 대체
     sanitized_name = re.sub(r'[^a-zA-Z0-9_]', '_', name_without_extension)
     #테이블명은 소문자로 변환
-    #mysql 예약어 충돌 방지를 위해 'dyn_' 접두사를 추가
-    return "dyn_" + sanitized_name.lower()
+    return sanitized_name.lower()
 
 def main(request):
     #  return HttpResponse("csv 파일을 입력받을 페이지입니다.")
@@ -93,9 +92,7 @@ def upload_view(request):
 
 @login_required
 def data_list_api(request):
-    data_objs = Data.objects.filter(user=request.user).values(
-        'id', 'data_name', 'user__email', 'date_created', 'usage_count'
-    )
+    data_objs = Data.objects.filter(user=request.user).select_related('user')
     data_list = [
         {
             "id": str(d.data_id),
@@ -124,21 +121,22 @@ def data_list_view(request):
         return JsonResponse({"success": True, "data": data_list})
     return JsonResponse({"success": False, "message": "로그인 필요"})
 
+@login_required
 def data_detail(request, id):
     try:
-        obj = Data.objects.get(pk=id)
+        obj = Data.objects.get(data_id=id, user=request.user)
     except Data.DoesNotExist:
         return JsonResponse({"success": False, "message": "데이터 없음!"})
 
     return JsonResponse({
         "success": True,
         "data": {
-            "id": obj.id,
-            "name": obj.name,
-            "provider": obj.provider,
-            "uploadDate": obj.upload_date.strftime("%Y-%m-%d"),
-            "usageCount": obj.usage_count,
-            "catalog": obj.catalog,
+            "id": str(obj.data_id),
+            "name": obj.data_name,
+            "provider": obj.user.email,
+            "uploadDate": obj.data_date.strftime("%Y.%m.%d"),
+            "usageCount": obj.data_usage,
+            "catalog": obj.catalog if hasattr(obj, 'catalog') else "미지정",
         }
     })
 
@@ -577,6 +575,35 @@ def api_get_columns(request, data_id):
 
     columns = raw[0]
     return JsonResponse({"success": True, "columns": columns})
+
+
+@csrf_exempt
+@login_required
+def api_increment_usage(request, data_id):
+    """데이터 분석 화면 진입 시 이용 횟수 증가"""
+    try:
+        from django.db.models import F
+        data_obj = Data.objects.get(pk=data_id, user=request.user)
+        # 원자적 업데이트로 동시성 문제 방지
+        Data.objects.filter(pk=data_id, user=request.user).update(data_usage=F('data_usage') + 1)
+        # 업데이트된 객체 다시 가져오기
+        data_obj.refresh_from_db()
+        
+        # UsageHistory에도 기록
+        UsageHistory.objects.create(
+            usage_type="analyze",
+            user=request.user,
+            data=data_obj
+        )
+        
+        return JsonResponse({
+            "success": True,
+            "usageCount": data_obj.data_usage
+        })
+    except Data.DoesNotExist:
+        return JsonResponse({"success": False, "message": "데이터가 존재하지 않습니다."})
+    except Exception as e:
+        return JsonResponse({"success": False, "message": f"오류 발생: {str(e)}"})
 
 
 @csrf_exempt

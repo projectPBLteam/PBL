@@ -16,7 +16,7 @@ const router = createBrowserRouter([
   { path: '/signup', element: <Signup /> },
   { path: '/guide', element: <Guide /> },
   { path: '/data-select', element: <DataSelect /> },
-  { path: '/data-detail', element: <DataDetail /> },
+  { path: '/data-detail/:id', element: <DataDetail /> },
   { path: '/data-upload', element: <DataUpload /> },
   { path: '/data-analysis', element: <DataAnalysis /> },
 ])
