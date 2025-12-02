@@ -239,13 +239,19 @@ def _append_console_log(session, data_id, entry):
 
 
 def _execute_user_code(code, df, columns):
-    # 분석 모듈 함수 사용 차단
+    # statistics_basic과 statistics_advanced 모듈의 모든 함수 사용 차단
     blocked_functions = [
+        # statistics_basic 모듈 함수들
         'calculate_mean', 'calculate_median', 'calculate_mode', 
-        'calculate_variance', 'calculate_std_dev', 'calculate_sem',
+        'calculate_range', 'calculate_variance', 'calculate_std_dev', 
+        'calculate_sem', 'calculate_kurtosis', 'calculate_skewness',
+        'calculate_population_variance', 'calculate_population_std_dev',
+        'print_column_statistics',
+        # statistics_advanced 모듈 함수들
         'run_regression_analysis', 'run_correlation_analysis',
         'pearson_correlation', 'spearman_correlation',
-        'print_column_statistics', 'Regression_Analysis', 'Correlation_Analysis'
+        # 기타 (레거시)
+        'Regression_Analysis', 'Correlation_Analysis'
     ]
     
     code_lower = code.lower()
@@ -292,6 +298,26 @@ def _handle_custom_code(request, data_id, code, columns, raw_rows, current_log):
     trimmed_code = (code or "").strip()
     if not trimmed_code:
         return "실행할 코드를 입력해주세요.", current_log
+
+    # 사용한 코드 기록 확인 (같은 코드 재사용 방지)
+    if "used_custom_codes" not in request.session:
+        request.session["used_custom_codes"] = {}
+    used_codes = request.session["used_custom_codes"]
+    data_key = str(data_id)
+    
+    if data_key not in used_codes:
+        used_codes[data_key] = {}
+    
+    # 코드의 해시값을 키로 사용 (공백/줄바꿈 정규화)
+    import hashlib
+    normalized_code = ' '.join(trimmed_code.split())
+    code_hash = hashlib.md5(normalized_code.encode()).hexdigest()
+    
+    # 이미 사용한 코드인지 확인
+    if code_hash in used_codes[data_key]:
+        entry = f">>> {trimmed_code}\n[재사용 불가] 이미 사용한 통계처리입니다. 같은 분석은 한 번만 사용할 수 있습니다.\n"
+        updated_log = _append_console_log(request.session, data_id, entry)
+        return "이미 사용한 통계처리입니다. 같은 분석은 한 번만 사용할 수 있습니다. ", updated_log
 
     numeric_seed = _select_numeric_seed(columns, raw_rows)
     allowed, remaining = _consume_query_budget(
@@ -376,11 +402,30 @@ def _handle_custom_code(request, data_id, code, columns, raw_rows, current_log):
             noisy_rows.append(new_row)
 
     dp_df = _build_dataframe(columns, noisy_rows)
-    execution_output = _execute_user_code(trimmed_code, dp_df, columns)
     
-    entry = f">>> {trimmed_code}\n{execution_output}\n(남은 쿼리: {remaining}회)\n"
-    updated_log = _append_console_log(request.session, data_id, entry)
-    return "사용자 코드가 실행되었습니다. 아래 콘솔에서 결과를 확인하세요.", updated_log
+    try:
+        execution_output = _execute_user_code(trimmed_code, dp_df, columns)
+        
+        # 코드 실행 성공 시 사용한 코드 기록
+        used_codes[data_key][code_hash] = True
+        request.session["used_custom_codes"] = used_codes
+        request.session.modified = True
+        
+        entry = f">>> {trimmed_code}\n{execution_output}\n(남은 쿼리: {remaining}회)\n"
+        updated_log = _append_console_log(request.session, data_id, entry)
+        return "사용자 코드가 실행되었습니다. 아래 콘솔에서 결과를 확인하세요.", updated_log
+    except ValueError as e:
+        # 분석 모듈 함수 사용 시도 시 에러 메시지 반환
+        error_msg = str(e)
+        entry = f">>> {trimmed_code}\n[오류] {error_msg}\n"
+        updated_log = _append_console_log(request.session, data_id, entry)
+        return error_msg, updated_log
+    except Exception as e:
+        # 기타 실행 오류
+        error_msg = f"코드 실행 중 오류가 발생했습니다: {str(e)}"
+        entry = f">>> {trimmed_code}\n[오류] {error_msg}\n"
+        updated_log = _append_console_log(request.session, data_id, entry)
+        return error_msg, updated_log
 
 
 
@@ -410,6 +455,7 @@ def datause3(request):
 
     # 페이지 재진입 시 (GET 요청만, stat이 없을 때) 사용한 분석 기록 초기화 및 쿼리 차감
     if data_id and request.method == "GET" and not stat:
+        # 통계처리 분석 기록 초기화
         if "used_analyses" in request.session and data_id in request.session["used_analyses"]:
             used_analyses = request.session["used_analyses"]
             # 사용한 분석이 있다면 쿼리 차감
@@ -430,6 +476,26 @@ def datause3(request):
                 # 사용한 분석 기록 초기화 (다시 분석할 수 있도록)
                 del used_analyses[data_id]
                 request.session["used_analyses"] = used_analyses
+                request.session.modified = True
+        
+        # 직접 코드 입력 기록도 초기화
+        if "used_custom_codes" in request.session:
+            used_codes = request.session["used_custom_codes"]
+            data_key = str(data_id)
+            if data_key in used_codes and used_codes[data_key]:
+                # 사용한 코드가 있다면 쿼리 차감
+                if "query_budget" in request.session:
+                    q = request.session["query_budget"]
+                    if data_key in q and "custom_code" in q[data_key]:
+                        if "__custom_console__" in q[data_key]["custom_code"]:
+                            if q[data_key]["custom_code"]["__custom_console__"] > 0:
+                                q[data_key]["custom_code"]["__custom_console__"] -= 1
+                        request.session["query_budget"] = q
+                        request.session.modified = True
+                
+                # 사용한 코드 기록 초기화
+                del used_codes[data_key]
+                request.session["used_custom_codes"] = used_codes
                 request.session.modified = True
 
     def _render_response():
@@ -936,7 +1002,20 @@ def api_custom_console(request, data_id):
         raw_rows,
         current_log,
     )
-    return JsonResponse({"success": True, "message": message, "log": updated_log})
+    
+    # 재사용 불가 또는 오류 메시지인 경우 success: False로 반환
+    is_error = (
+        "이미 사용한 통계처리" in message or
+        "오류" in message or
+        "사용할 수 없습니다" in message or
+        "모듈 함수" in message
+    )
+    
+    return JsonResponse({
+        "success": not is_error, 
+        "message": message, 
+        "log": updated_log
+    })
 
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
@@ -995,6 +1074,24 @@ def api_reset_used_analyses(request, data_id):
         # 사용한 분석 기록 초기화 (다시 분석할 수 있도록)
         del used_analyses[data_key]
         request.session["used_analyses"] = used_analyses
+        request.session.modified = True
+    
+    # 직접 코드 입력 기록도 초기화
+    used_codes = request.session.get("used_custom_codes", {})
+    if data_key in used_codes and used_codes[data_key]:
+        # 사용한 코드가 있다면 쿼리 차감
+        if "query_budget" in request.session:
+            q = request.session["query_budget"]
+            if data_key in q and "custom_code" in q[data_key]:
+                if "__custom_console__" in q[data_key]["custom_code"]:
+                    if q[data_key]["custom_code"]["__custom_console__"] > 0:
+                        q[data_key]["custom_code"]["__custom_console__"] -= 1
+            request.session["query_budget"] = q
+            request.session.modified = True
+        
+        # 사용한 코드 기록 초기화
+        del used_codes[data_key]
+        request.session["used_custom_codes"] = used_codes
         request.session.modified = True
     
     return JsonResponse({"success": True, "message": "사용한 분석 기록이 초기화되었습니다."})

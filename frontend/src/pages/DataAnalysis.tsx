@@ -198,13 +198,19 @@ export default function DataAnalysis() {
             return;
         }
         
-        // 분석 모듈 함수 사용 차단
+        // statistics_basic과 statistics_advanced 모듈의 모든 함수 사용 차단
         const blockedFunctions = [
+            // statistics_basic 모듈 함수들
             'calculate_mean', 'calculate_median', 'calculate_mode',
-            'calculate_variance', 'calculate_std_dev', 'calculate_sem',
+            'calculate_range', 'calculate_variance', 'calculate_std_dev',
+            'calculate_sem', 'calculate_kurtosis', 'calculate_skewness',
+            'calculate_population_variance', 'calculate_population_std_dev',
+            'print_column_statistics',
+            // statistics_advanced 모듈 함수들
             'run_regression_analysis', 'run_correlation_analysis',
             'pearson_correlation', 'spearman_correlation',
-            'print_column_statistics', 'Regression_Analysis', 'Correlation_Analysis'
+            // 기타 (레거시)
+            'Regression_Analysis', 'Correlation_Analysis'
         ];
         const codeLower = customCode.toLowerCase();
         const foundBlocked = blockedFunctions.find(func => 
