@@ -411,7 +411,7 @@ def _handle_custom_code(request, data_id, code, columns, raw_rows, current_log):
         request.session["used_custom_codes"] = used_codes
         request.session.modified = True
         
-        entry = f">>> {trimmed_code}\n{execution_output}\n(남은 쿼리: {remaining}회)\n"
+        entry = f">>> {trimmed_code}\n{execution_output}\n"
         updated_log = _append_console_log(request.session, data_id, entry)
         return "사용자 코드가 실행되었습니다. 아래 콘솔에서 결과를 확인하세요.", updated_log
     except ValueError as e:
@@ -656,9 +656,21 @@ def datause3(request):
                         elif stat == 'median':
                             value = calculate_median(noisy_col_data[main_col_name])
                             result_text = f"중앙값({selected_col}) = {float(value):.4f}"
-                        elif stat == 'mode':
-                            modes = calculate_mode(noisy_col_data[main_col_name])
-                            result_text = f"최빈값({selected_col}) = {list(modes)}"
+                        elif stat == "mode":
+                            rounded_data = [round(val, 3) for val in noisy_col_data[main_col_name]]
+                            modes, count = calculate_mode(rounded_data)
+                            
+                            # 빈도수가 1 이하이면 (중복 없음)
+                            if count <= 1:
+                                result_text = f"최빈값({selected_col}) : 모든 데이터가 겹치지 않습니다. (노이즈로 인해 고유값이 되었습니다)"
+                            else:
+                                clean_modes = [float(m) for m in modes]
+
+                                if len(clean_modes) > 10:
+                                    result_text = f"최빈값({selected_col}) = {clean_modes[:10]} ... 외 {len(clean_modes)-10}개 (빈도: {count})"
+                                else:
+                                    result_text = f"최빈값({selected_col}) = {clean_modes} (빈도: {count})"
+                    
                         elif stat == 'variance':
                             value = calculate_variance(noisy_col_data[main_col_name])
                             result_text = f"표본분산({selected_col}) = {float(value):.4f}"
@@ -749,6 +761,15 @@ def signup_view(request):
     return JsonResponse({"success": False, "message": "POST 요청만 허용돼요."})
 
 def user_logout(request):
+    keys_to_delete = [
+        'last_executed_code',   # 사용자가 입력했던 코드
+        'last_execution_result', # 실행 결과 메시지
+        'custom_code_cache'     
+    ]
+
+    for key in keys_to_delete:
+        if key in request.session:
+            del request.session[key]
     logout(request)
     return redirect('main')
 

@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import stats
+import random
 
 # 기초 통계 함수
 
@@ -13,9 +14,12 @@ def calculate_median(data):
 
 # 3. 최빈값 (여러 개일 경우 모두 반환)
 def calculate_mode(data):
+    if len(data) == 0:
+        return np.array([]), 0
     values, counts = np.unique(data, return_counts=True)
     max_count = np.max(counts)
-    return values[counts == max_count]
+    return values[counts == max_count], max_count
+
 
 # 4. 범위
 def calculate_range(data):
