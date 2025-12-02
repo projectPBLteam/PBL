@@ -3,9 +3,15 @@ import { useNavigate } from 'react-router-dom'
 
 export default function Main() {
   const navigate = useNavigate()
-  const handleLogout = () => {
+
+  const handleLogout = async () => {
+    await fetch("http://localhost:8000/logout/", {
+      method: 'GET',
+      credentials: 'include',
+    });
     navigate('/')
   }
+
   return (
     <div className="main-screen">
       {/* 로그아웃 버튼 */}

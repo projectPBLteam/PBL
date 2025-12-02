@@ -762,14 +762,18 @@ def signup_view(request):
 
 def user_logout(request):
     keys_to_delete = [
-        'last_executed_code',   # 사용자가 입력했던 코드
-        'last_execution_result', # 실행 결과 메시지
-        'custom_code_cache'     
+        'used_analyses',
+        'used_custom_codes',
+        'custom_console_history',
+        'last_executed_code',
+        'last_execution_result',
+        'custom_code_cache',
     ]
 
     for key in keys_to_delete:
         if key in request.session:
             del request.session[key]
+            
     logout(request)
     return redirect('main')
 
