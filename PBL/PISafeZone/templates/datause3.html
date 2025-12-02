@@ -74,10 +74,11 @@
                 {% csrf_token %}
                 <input type="hidden" name="mode" value="custom_code">
                 <input type="hidden" name="data" value="{{ data_id }}">
-                <textarea name="custom_code" rows="6" style="width:100%; font-family:monospace;" placeholder="df.describe() 등 실행하고 싶은 파이썬 코드를 입력하세요.">{{ last_custom_code }}</textarea>
+                <textarea name="custom_code" id="customCodeTextarea" rows="6" style="width:100%; font-family:monospace;" placeholder="df.describe() 등 실행하고 싶은 파이썬 코드를 입력하세요.">{{ last_custom_code }}</textarea>
+                <div id="codeValidationMessage" style="margin-top:4px; color:#dc3545; font-size:12px; display:none;"></div>
                 <div style="margin-top:8px; display:flex; justify-content:flex-end; gap:8px;">
                     <button type="button" id="customCodeCancel">취소</button>
-                    <button type="submit">실행</button>
+                    <button type="submit" id="customCodeSubmit">실행</button>
                 </div>
             </form>
         </div>
@@ -158,6 +159,57 @@
 
         if (shouldOpenCustom) {
             openCustomForm();
+        }
+
+        // 분석 모듈 함수 사용 차단
+        const blockedFunctions = [
+            'calculate_mean', 'calculate_median', 'calculate_mode',
+            'calculate_variance', 'calculate_std_dev', 'calculate_sem',
+            'run_regression_analysis', 'run_correlation_analysis',
+            'pearson_correlation', 'spearman_correlation',
+            'print_column_statistics', 'Regression_Analysis', 'Correlation_Analysis'
+        ];
+        
+        const customCodeTextarea = document.getElementById('customCodeTextarea');
+        const customCodeForm = document.getElementById('customCodeForm');
+        const codeValidationMessage = document.getElementById('codeValidationMessage');
+        const customCodeSubmit = document.getElementById('customCodeSubmit');
+        
+        if (customCodeTextarea && customCodeForm) {
+            function validateCode() {
+                const code = customCodeTextarea.value.toLowerCase();
+                let foundBlocked = null;
+                
+                for (const func of blockedFunctions) {
+                    if (code.includes(func.toLowerCase())) {
+                        foundBlocked = func;
+                        break;
+                    }
+                }
+                
+                if (foundBlocked) {
+                    codeValidationMessage.textContent = `'${foundBlocked}'와 같은 분석 모듈 함수는 사용할 수 없습니다. 왼쪽 선택창에서 분석 옵션을 선택해주세요.`;
+                    codeValidationMessage.style.display = 'block';
+                    if (customCodeSubmit) customCodeSubmit.disabled = true;
+                    return false;
+                } else {
+                    codeValidationMessage.style.display = 'none';
+                    if (customCodeSubmit) customCodeSubmit.disabled = false;
+                    return true;
+                }
+            }
+            
+            customCodeTextarea.addEventListener('input', validateCode);
+            customCodeTextarea.addEventListener('paste', function() {
+                setTimeout(validateCode, 10);
+            });
+            
+            customCodeForm.addEventListener('submit', function(e) {
+                if (!validateCode()) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
         }
     });
 </script>

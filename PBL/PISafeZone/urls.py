@@ -27,4 +27,5 @@ urlpatterns = [
     path("api/data/<uuid:data_id>/increment-usage/", views.api_increment_usage, name="data_increment_usage"),
     path("api/data/<uuid:data_id>/analyze/", views.api_analyze, name="data_analyze_api"),
     path("api/data/<uuid:data_id>/custom-console/", views.api_custom_console, name="data_custom_console"),
+    path("api/data/<uuid:data_id>/reset-used-analyses/", views.api_reset_used_analyses, name="data_reset_used_analyses"),
 ]

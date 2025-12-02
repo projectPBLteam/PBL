@@ -197,6 +197,24 @@ export default function DataAnalysis() {
             alert("데이터를 먼저 선택해주세요.");
             return;
         }
+        
+        // 분석 모듈 함수 사용 차단
+        const blockedFunctions = [
+            'calculate_mean', 'calculate_median', 'calculate_mode',
+            'calculate_variance', 'calculate_std_dev', 'calculate_sem',
+            'run_regression_analysis', 'run_correlation_analysis',
+            'pearson_correlation', 'spearman_correlation',
+            'print_column_statistics', 'Regression_Analysis', 'Correlation_Analysis'
+        ];
+        const codeLower = customCode.toLowerCase();
+        const foundBlocked = blockedFunctions.find(func => 
+            codeLower.includes(func.toLowerCase())
+        );
+        if (foundBlocked) {
+            setCustomStatus(`'${foundBlocked}'와 같은 분석 모듈 함수는 사용할 수 없습니다. 왼쪽 선택창에서 분석 옵션을 선택해주세요.`);
+            return;
+        }
+        
         setCustomStatus("실행 중...");
         fetch(`http://localhost:8000/api/data/${dataId}/custom-console/`, {
             method: "POST",
@@ -234,6 +252,23 @@ export default function DataAnalysis() {
         link.setAttribute("download", "analysis_result.csv");
         link.click();
         URL.revokeObjectURL(url);
+        
+        // 결과 반출 시 사용한 분석 기록 초기화 및 쿼리 차감
+        if (dataId) {
+            fetch(`http://localhost:8000/api/data/${dataId}/reset-used-analyses/`, {
+                method: "POST",
+                credentials: "include",
+            })
+                .then((res) => res.json())
+                .then((json) => {
+                    if (json.success) {
+                        console.log("사용한 분석 기록이 초기화되었습니다.");
+                    }
+                })
+                .catch((err) => {
+                    console.error("분석 기록 초기화 중 오류:", err);
+                });
+        }
     };
 
     const renderColumnSelectors = () => {
@@ -349,11 +384,6 @@ export default function DataAnalysis() {
                                             <span className="meta-columns">{entry.columnsLabel}</span>
                                         </div>
                                         <div className="analysis-entry-text">{entry.text}</div>
-                                        {entry.remaining !== null && (
-                                            <div className="analysis-entry-remaining">
-                                                남은 쿼리: {entry.remaining}회
-                                            </div>
-                                        )}
                                     </div>
                                 ))
                             )}
@@ -383,8 +413,33 @@ export default function DataAnalysis() {
                                     rows={6}
                                     placeholder="예) df.describe()"
                                     value={customCode}
-                                    onChange={(e) => setCustomCode(e.target.value)}
+                                    onChange={(e) => {
+                                        const code = e.target.value;
+                                        setCustomCode(code);
+                                        // 분석 모듈 함수 사용 차단
+                                        const blockedFunctions = [
+                                            'calculate_mean', 'calculate_median', 'calculate_mode',
+                                            'calculate_variance', 'calculate_std_dev', 'calculate_sem',
+                                            'run_regression_analysis', 'run_correlation_analysis',
+                                            'pearson_correlation', 'spearman_correlation',
+                                            'print_column_statistics', 'Regression_Analysis', 'Correlation_Analysis'
+                                        ];
+                                        const codeLower = code.toLowerCase();
+                                        const foundBlocked = blockedFunctions.find(func => 
+                                            codeLower.includes(func.toLowerCase())
+                                        );
+                                        if (foundBlocked) {
+                                            setCustomStatus(`'${foundBlocked}'와 같은 분석 모듈 함수는 사용할 수 없습니다. 왼쪽 선택창에서 분석 옵션을 선택해주세요.`);
+                                        } else {
+                                            setCustomStatus("");
+                                        }
+                                    }}
                                 />
+                                {customStatus && customStatus.includes("분석 모듈 함수") && (
+                                    <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>
+                                        {customStatus}
+                                    </div>
+                                )}
                                 <div className="custom-console-actions">
                                     <button
                                         className="run-code-btn"

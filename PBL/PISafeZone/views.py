@@ -239,6 +239,20 @@ def _append_console_log(session, data_id, entry):
 
 
 def _execute_user_code(code, df, columns):
+    # 분석 모듈 함수 사용 차단
+    blocked_functions = [
+        'calculate_mean', 'calculate_median', 'calculate_mode', 
+        'calculate_variance', 'calculate_std_dev', 'calculate_sem',
+        'run_regression_analysis', 'run_correlation_analysis',
+        'pearson_correlation', 'spearman_correlation',
+        'print_column_statistics', 'Regression_Analysis', 'Correlation_Analysis'
+    ]
+    
+    code_lower = code.lower()
+    for func in blocked_functions:
+        if func.lower() in code_lower:
+            raise ValueError(f"'{func}'와 같은 분석 모듈 함수는 직접 코드 입력에서 사용할 수 없습니다. 왼쪽 선택창에서 분석 옵션을 선택해주세요.")
+    
     output_buffer = io.StringIO()
     safe_globals = {
         "__builtins__": SAFE_BUILTINS,
@@ -394,6 +408,30 @@ def datause3(request):
     custom_console_history = request.session.get("custom_console_history", {})
     custom_console_log = custom_console_history.get(data_id, "")
 
+    # 페이지 재진입 시 (GET 요청만, stat이 없을 때) 사용한 분석 기록 초기화 및 쿼리 차감
+    if data_id and request.method == "GET" and not stat:
+        if "used_analyses" in request.session and data_id in request.session["used_analyses"]:
+            used_analyses = request.session["used_analyses"]
+            # 사용한 분석이 있다면 쿼리 차감
+            if data_id in used_analyses and used_analyses[data_id]:
+                if "query_budget" in request.session:
+                    q = request.session["query_budget"]
+                    if data_id in q:
+                        for stat_key in list(q[data_id].keys()):
+                            if stat_key in used_analyses.get(data_id, {}):
+                                for col_key in list(q[data_id][stat_key].keys()):
+                                    if col_key in used_analyses.get(data_id, {}).get(stat_key, {}):
+                                        # 쿼리 차감
+                                        if q[data_id][stat_key][col_key] > 0:
+                                            q[data_id][stat_key][col_key] -= 1
+                        request.session["query_budget"] = q
+                        request.session.modified = True
+                
+                # 사용한 분석 기록 초기화 (다시 분석할 수 있도록)
+                del used_analyses[data_id]
+                request.session["used_analyses"] = used_analyses
+                request.session.modified = True
+
     def _render_response():
         return render(
             request,
@@ -496,6 +534,22 @@ def datause3(request):
 
                     QueryN = q[data_id][stat][selected_col]
 
+                    # 사용한 분석 기록 확인
+                    if "used_analyses" not in request.session:
+                        request.session["used_analyses"] = {}
+                    used_analyses = request.session["used_analyses"]
+                    if data_id not in used_analyses:
+                        used_analyses[data_id] = {}
+                    if stat not in used_analyses[data_id]:
+                        used_analyses[data_id][stat] = {}
+                    
+                    # 이미 사용한 분석인지 확인
+                    if selected_col in used_analyses[data_id][stat]:
+                        result_text = f"이미 사용한 통계처리입니다. 같은 분석은 한 번만 사용할 수 있습니다. 결과를 반출하거나 페이지를 나간 후 다시 들어오시면 다시 분석할 수 있습니다."
+                        request.session["used_analyses"] = used_analyses
+                        request.session.modified = True
+                        return _render_response()
+
                     if QueryN < 1:
                         result_text = f"이용하실 수 있는 쿼리 수를 모두 소진하셨습니다. (남은 쿼리: 0회)"
                     else:
@@ -571,6 +625,11 @@ def datause3(request):
                                 selected_col_y,
                                 'spearman'
                             )
+                        
+                        # 분석 사용 기록
+                        used_analyses[data_id][stat][selected_col] = True
+                        request.session["used_analyses"] = used_analyses
+                        request.session.modified = True
                         
                         result_text += f"\n (남은 쿼리: {q[data_id][stat][selected_col]}회)"
 
@@ -746,12 +805,30 @@ def api_analyze(request, data_id):
     if selected_key not in stat_bucket:
         stat_bucket[selected_key] = FindQueryN(main_values, n, epsilon, sensitivity)
 
+    # 사용한 분석 기록 확인
+    used_analyses = request.session.setdefault("used_analyses", {})
+    if data_key not in used_analyses:
+        used_analyses[data_key] = {}
+    if stat not in used_analyses[data_key]:
+        used_analyses[data_key][stat] = {}
+    
+    # 이미 사용한 분석인지 확인
+    if selected_key in used_analyses[data_key][stat]:
+        return JsonResponse({
+            "success": False, 
+            "message": "이미 사용한 통계처리입니다. 같은 분석은 한 번만 사용할 수 있습니다. 결과를 반출하거나 페이지를 나간 후 다시 들어오시면 다시 분석할 수 있습니다."
+        })
+
     remaining = stat_bucket[selected_key]
     if remaining < 1:
         return JsonResponse({"success": False, "message": "이용 가능한 쿼리가 모두 소진되었습니다."})
 
     stat_bucket[selected_key] = remaining - 1
     request.session["query_budget"] = session_budget
+    
+    # 분석 사용 기록
+    used_analyses[data_key][stat][selected_key] = True
+    request.session["used_analyses"] = used_analyses
     request.session.modified = True
 
     noisy_col_data = {}
@@ -886,3 +963,38 @@ def data_columns_api(request, data_id):
         columns = [row[0] for row in cursor.fetchall()]
 
     return JsonResponse({"success": True, "columns": columns})
+
+
+@csrf_exempt
+@login_required
+def api_reset_used_analyses(request, data_id):
+    """결과 반출 시 사용한 분석 기록 초기화 및 쿼리 차감"""
+    try:
+        data_obj = Data.objects.get(pk=data_id, user=request.user)
+    except Data.DoesNotExist:
+        return JsonResponse({"success": False, "message": "데이터가 존재하지 않습니다."})
+    
+    data_key = str(data_id)
+    used_analyses = request.session.get("used_analyses", {})
+    
+    # 사용한 분석이 있다면 쿼리 차감
+    if data_key in used_analyses and used_analyses[data_key]:
+        if "query_budget" in request.session:
+            q = request.session["query_budget"]
+            if data_key in q:
+                for stat_key in list(q[data_key].keys()):
+                    if stat_key in used_analyses.get(data_key, {}):
+                        for col_key in list(q[data_key][stat_key].keys()):
+                            if col_key in used_analyses.get(data_key, {}).get(stat_key, {}):
+                                # 쿼리 차감
+                                if q[data_key][stat_key][col_key] > 0:
+                                    q[data_key][stat_key][col_key] -= 1
+                request.session["query_budget"] = q
+                request.session.modified = True
+        
+        # 사용한 분석 기록 초기화 (다시 분석할 수 있도록)
+        del used_analyses[data_key]
+        request.session["used_analyses"] = used_analyses
+        request.session.modified = True
+    
+    return JsonResponse({"success": True, "message": "사용한 분석 기록이 초기화되었습니다."})
