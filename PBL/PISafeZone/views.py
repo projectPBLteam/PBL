@@ -13,6 +13,7 @@ import io
 import traceback
 import pandas as pd
 import numpy as np
+import logging
 
 # 모듈 임포트
 from modules.data_utils import read_csvfile, maketbl, insert_data
@@ -292,7 +293,8 @@ def _execute_user_code(code, df, columns):
         output = output_buffer.getvalue()
         output += "\n" + traceback.format_exc(limit=5)
         return output.strip()
-
+    
+logger = logging.getLogger(__name__)
 
 def _handle_custom_code(request, data_id, code, columns, raw_rows, current_log):
     trimmed_code = (code or "").strip()
@@ -412,6 +414,13 @@ def _handle_custom_code(request, data_id, code, columns, raw_rows, current_log):
         request.session.modified = True
         
         entry = f">>> {trimmed_code}\n{execution_output}\n"
+
+        logger.info("---------------------------------------------------------------")
+        logger.info("") 
+        logger.info(f"(남은 쿼리: {remaining}회)")
+        logger.info("") 
+        logger.info("---------------------------------------------------------------")
+        
         updated_log = _append_console_log(request.session, data_id, entry)
         return "사용자 코드가 실행되었습니다. 아래 콘솔에서 결과를 확인하세요.", updated_log
     except ValueError as e:
@@ -431,295 +440,7 @@ def _handle_custom_code(request, data_id, code, columns, raw_rows, current_log):
 
 @login_required
 def datause3(request):
-    data_id = request.GET.get('data') or request.POST.get('data')
-    stat = request.GET.get('stat') or request.POST.get('stat')
-    
-    selected_col_single = request.GET.get('col_single') 
-    selected_col_y = request.GET.get('col_y')
-    selected_col_x = request.GET.get('col_x')
-
-    is_custom_mode = request.method == "POST" and request.POST.get('mode') == 'custom_code'
-    if is_custom_mode:
-        stat = 'custom_code'
-    last_custom_code = request.POST.get('custom_code', '') if is_custom_mode else ''
-
-    if stat in ('regression', 'correlation_p', 'correlation_s'):
-        selected_col = f"{selected_col_y} vs {selected_col_x}"
-    else:
-        selected_col = selected_col_single
-    
-    result_text = None
-    columns = []
-    custom_console_history = request.session.get("custom_console_history", {})
-    custom_console_log = custom_console_history.get(data_id, "")
-
-    # 페이지 재진입 시 (GET 요청만, stat이 없을 때) 사용한 분석 기록 초기화 및 쿼리 차감
-    if data_id and request.method == "GET" and not stat:
-        # 통계처리 분석 기록 초기화
-        if "used_analyses" in request.session and data_id in request.session["used_analyses"]:
-            used_analyses = request.session["used_analyses"]
-            # 사용한 분석이 있다면 쿼리 차감
-            if data_id in used_analyses and used_analyses[data_id]:
-                if "query_budget" in request.session:
-                    q = request.session["query_budget"]
-                    if data_id in q:
-                        for stat_key in list(q[data_id].keys()):
-                            if stat_key in used_analyses.get(data_id, {}):
-                                for col_key in list(q[data_id][stat_key].keys()):
-                                    if col_key in used_analyses.get(data_id, {}).get(stat_key, {}):
-                                        # 쿼리 차감
-                                        if q[data_id][stat_key][col_key] > 0:
-                                            q[data_id][stat_key][col_key] -= 1
-                        request.session["query_budget"] = q
-                        request.session.modified = True
-                
-                # 사용한 분석 기록 초기화 (다시 분석할 수 있도록)
-                del used_analyses[data_id]
-                request.session["used_analyses"] = used_analyses
-                request.session.modified = True
-        
-        # 직접 코드 입력 기록도 초기화
-        if "used_custom_codes" in request.session:
-            used_codes = request.session["used_custom_codes"]
-            data_key = str(data_id)
-            if data_key in used_codes and used_codes[data_key]:
-                # 사용한 코드가 있다면 쿼리 차감
-                if "query_budget" in request.session:
-                    q = request.session["query_budget"]
-                    if data_key in q and "custom_code" in q[data_key]:
-                        if "__custom_console__" in q[data_key]["custom_code"]:
-                            if q[data_key]["custom_code"]["__custom_console__"] > 0:
-                                q[data_key]["custom_code"]["__custom_console__"] -= 1
-                        request.session["query_budget"] = q
-                        request.session.modified = True
-                
-                # 사용한 코드 기록 초기화
-                del used_codes[data_key]
-                request.session["used_custom_codes"] = used_codes
-                request.session.modified = True
-
-    def _render_response():
-        return render(
-            request,
-            'datause3.html',
-            {
-                'result': result_text,
-                'columns': columns,
-                'selected_col_single': selected_col_single,
-                'selected_col_y': selected_col_y,
-                'selected_col_x': selected_col_x,
-                'stat': stat,
-                'data_id': data_id,
-                'custom_console_log': custom_console_log,
-                'is_custom_mode': is_custom_mode,
-                'last_custom_code': last_custom_code,
-            },
-        )
-    
-    if data_id:
-        try:
-            data_obj = Data.objects.get(pk=data_id)
-            raw_data_with_header = _load_dynamic_table_as_list(data_obj.data_name)
-        
-            if not raw_data_with_header or len(raw_data_with_header) < 2:
-                raise ValueError("데이터가 비어있습니다.")
-
-            columns = raw_data_with_header[0]
-            raw_data = raw_data_with_header[1:]
-
-            if is_custom_mode:
-                result_text, custom_console_log = _handle_custom_code(
-                    request,
-                    data_id,
-                    request.POST.get('custom_code'),
-                    columns,
-                    raw_data,
-                    custom_console_log,
-                )
-            else:
-                col_to_process = []
-                
-                if stat in ('regression', 'correlation_p', 'correlation_s'):
-                    if not selected_col_y or not selected_col_x:
-                        result_text = "분석을 위해 종속 변수(Y)와 독립 변수(X)를 모두 선택해야 합니다."
-                        return _render_response()
-                    col_to_process.append(selected_col_y)
-                    col_to_process.append(selected_col_x)
-                    
-                elif selected_col_single:
-                    col_to_process.append(selected_col_single)
-                else:
-                    col_to_process = []
-
-                if col_to_process:
-                    col_data = {}
-                    col_indices = {}
-                    
-                    for col_name in col_to_process:
-                        try:
-                            col_idx = columns.index(col_name)
-                            col_indices[col_name] = col_idx
-                            
-                            numeric_values = []
-                            for row in raw_data:
-                                try:
-                                    numeric_values.append(float(row[col_idx]))
-                                except (ValueError, TypeError):
-                                    continue
-                            col_data[col_name] = numeric_values
-                            
-                        except ValueError:
-                            result_text = f"컬럼 '{col_name}'을(를) 찾을 수 없습니다."
-                            return _render_response()
-                
-                    main_col_name = selected_col_y if stat == 'regression' else selected_col_single
-                    main_values = col_data.get(main_col_name, [])
-                    
-                    if not main_values:
-                        result_text = f"선택한 컬럼에서 숫자 데이터를 찾을 수 없습니다."
-                        return _render_response()
-                    
-                    n = len(main_values)
-                    sensitivity = (max(main_values) - min(main_values)) / n
-                    epsilon = 0.7
-
-                    if "query_budget" not in request.session:
-                        request.session["query_budget"] = {}
-
-                    q = request.session["query_budget"]
-
-                    if data_id not in q:
-                        q[data_id] = {}
-
-                    if stat not in q[data_id]:
-                        q[data_id][stat] = {}
-
-                    if selected_col not in q[data_id][stat]:
-                        initial_query_n = FindQueryN(main_values, n, epsilon, sensitivity)
-                        q[data_id][stat][selected_col] = initial_query_n
-
-                    QueryN = q[data_id][stat][selected_col]
-
-                    # 사용한 분석 기록 확인
-                    if "used_analyses" not in request.session:
-                        request.session["used_analyses"] = {}
-                    used_analyses = request.session["used_analyses"]
-                    if data_id not in used_analyses:
-                        used_analyses[data_id] = {}
-                    if stat not in used_analyses[data_id]:
-                        used_analyses[data_id][stat] = {}
-                    
-                    # 이미 사용한 분석인지 확인
-                    if selected_col in used_analyses[data_id][stat]:
-                        result_text = f"이미 사용한 통계처리입니다. 같은 분석은 한 번만 사용할 수 있습니다. 결과를 반출하거나 페이지를 나간 후 다시 들어오시면 다시 분석할 수 있습니다."
-                        request.session["used_analyses"] = used_analyses
-                        request.session.modified = True
-                        return _render_response()
-
-                    if QueryN < 1:
-                        result_text = f"이용하실 수 있는 쿼리 수를 모두 소진하셨습니다. (남은 쿼리: 0회)"
-                    else:
-                        q[data_id][stat][selected_col] = QueryN - 1
-                        request.session["query_budget"] = q
-                        
-                        noisy_col_data = {}
-                        for col_name, numeric_values in col_data.items():
-                            sensitivity_col = (max(numeric_values) - min(numeric_values)) / len(numeric_values)
-                            noisy_values = laplace_local_differential_privacy(
-                                numeric_values,
-                                epsilon,
-                                sensitivity_col
-                            )
-                            noisy_col_data[col_name] = [float(v) for v in noisy_values if isinstance(v, (int, float))]
-                        
-                        data_length = len(raw_data)
-                        noisy_data_with_header = [columns[:]] 
-                        
-                        for i in range(data_length):
-                            new_row = raw_data[i][:]
-                            valid_row = True
-                            for col_name in col_to_process:
-                                original_idx = col_indices[col_name]
-                                noisy_list = noisy_col_data[col_name]
-                                
-                                if i < len(noisy_list):
-                                    new_row[original_idx] = noisy_list[i]
-                                else:
-                                    valid_row = False
-                            
-                            if valid_row:
-                                noisy_data_with_header.append(new_row)
-
-                        if stat == 'mean':
-                            value = calculate_mean(noisy_col_data[main_col_name])
-                            result_text = f"평균({selected_col}) = {float(value):.4f}"
-                        elif stat == 'median':
-                            value = calculate_median(noisy_col_data[main_col_name])
-                            result_text = f"중앙값({selected_col}) = {float(value):.4f}"
-                        elif stat == "mode":
-                            rounded_data = [round(val, 3) for val in noisy_col_data[main_col_name]]
-                            modes, count = calculate_mode(rounded_data)
-                            
-                            # 빈도수가 1 이하이면 (중복 없음)
-                            if count <= 1:
-                                result_text = f"최빈값({selected_col}) : 모든 데이터가 겹치지 않습니다. (노이즈로 인해 고유값이 되었습니다)"
-                            else:
-                                clean_modes = [float(m) for m in modes]
-
-                                if len(clean_modes) > 10:
-                                    result_text = f"최빈값({selected_col}) = {clean_modes[:10]} ... 외 {len(clean_modes)-10}개 (빈도: {count})"
-                                else:
-                                    result_text = f"최빈값({selected_col}) = {clean_modes} (빈도: {count})"
-                    
-                        elif stat == 'variance':
-                            value = calculate_variance(noisy_col_data[main_col_name])
-                            result_text = f"표본분산({selected_col}) = {float(value):.4f}"
-                        elif stat == 'std_dev':
-                            value = calculate_std_dev(noisy_col_data[main_col_name])
-                            result_text = f"표준편차({selected_col}) = {float(value):.4f}"
-                        elif stat == 'sem':
-                            value = calculate_sem(noisy_col_data[main_col_name])
-                            result_text = f"표준오차({selected_col}) = {float(value):.4f}"
-                        
-                        elif stat == 'regression':
-                            result_text = run_regression_analysis(
-                                noisy_data_with_header, 
-                                selected_col_x, 
-                                selected_col_y
-                            )
-
-                        elif stat == 'correlation_p': 
-                            result_text = run_correlation_analysis(
-                                noisy_data_with_header, 
-                                selected_col_x, 
-                                selected_col_y,
-                                'pearson'
-                            )
-
-                        elif stat == 'correlation_s': 
-                            result_text = run_correlation_analysis(
-                                noisy_data_with_header, 
-                                selected_col_x, 
-                                selected_col_y,
-                                'spearman'
-                            )
-                        
-                        # 분석 사용 기록
-                        used_analyses[data_id][stat][selected_col] = True
-                        request.session["used_analyses"] = used_analyses
-                        request.session.modified = True
-                        
-                        result_text += f"\n (남은 쿼리: {q[data_id][stat][selected_col]}회)"
-
-        except Data.DoesNotExist:
-            result_text = "선택한 데이터가 존재하지 않습니다."
-        except Exception as e:
-            result_text = f"처리 중 오류: {e}"
-    else:
-        if is_custom_mode:
-            result_text = "데이터를 먼저 선택한 뒤 사용자 코드를 실행할 수 있습니다."
-
-    return _render_response()
+    return
 
 
 @csrf_exempt 
@@ -824,7 +545,7 @@ def api_increment_usage(request, data_id):
 @csrf_exempt
 @login_required
 def api_analyze(request, data_id):
-    """React에서 요청하는 분석 API (평균/회귀 등 포함)"""
+    # React에서 요청하는 분석 API (평균/회귀 등 포함)
     if request.method != "POST":
         return JsonResponse({"success": False, "message": "POST만 허용됩니다."})
 
@@ -979,6 +700,12 @@ def api_analyze(request, data_id):
             result_text = run_correlation_analysis(noisy_data_with_header, col_x, col_y, method)
     else:
         return JsonResponse({"success": False, "message": "지원하지 않는 stat 입니다."})
+    
+    logger.info("---------------------------------------------------------------")
+    logger.info("") 
+    logger.info(f"(남은 쿼리: {remaining}회)")
+    logger.info("") 
+    logger.info("---------------------------------------------------------------")
 
     return JsonResponse({
         "success": True,

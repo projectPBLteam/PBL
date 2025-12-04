@@ -29,6 +29,43 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple' 
+        },
+    },
+    'loggers': {
+        'PISafeZone': {
+            'handlers': ['console'],
+            'level': 'INFO', 
+            'propagate': True,
+        },
+        'PISafeZone.views': {
+        'handlers': ['console'],
+        'level': 'INFO', 
+        'propagate': True,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    }
+}
 
 # Application definition
 
