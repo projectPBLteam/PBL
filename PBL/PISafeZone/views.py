@@ -666,8 +666,11 @@ def api_analyze(request, data_id):
         value = calculate_median(noisy_col_data[main_col])
         result_text = f"중앙값({selected_key}) = {float(value):.4f}"
     elif stat == "mode":
-        modes = calculate_mode(noisy_col_data[main_col])
-        result_text = f"최빈값({selected_key}) = {list(modes)}"
+        mode_values, max_count = calculate_mode(noisy_col_data[main_col])
+        if max_count <= 1:
+            result_text = f"최빈값({selected_key}) = 모든 값이 겹치지 않아 결과를 제공할 수 없습니다."
+        else:
+            result_text = f"최빈값({selected_key}) = {list(mode_values)}"
     elif stat == "variance":
         value = calculate_variance(noisy_col_data[main_col])
         result_text = f"표본분산({selected_key}) = {float(value):.4f}"
@@ -799,7 +802,7 @@ def data_columns_api(request, data_id):
 @csrf_exempt
 @login_required
 def api_reset_used_analyses(request, data_id):
-    """결과 반출 시 사용한 분석 기록 초기화 및 쿼리 차감"""
+    """결과 반출 시 사용한 분석 기록 초기화"""
     try:
         data_obj = Data.objects.get(pk=data_id, user=request.user)
     except Data.DoesNotExist:
@@ -808,21 +811,7 @@ def api_reset_used_analyses(request, data_id):
     data_key = str(data_id)
     used_analyses = request.session.get("used_analyses", {})
     
-    # 사용한 분석이 있다면 쿼리 차감
-    if data_key in used_analyses and used_analyses[data_key]:
-        if "query_budget" in request.session:
-            q = request.session["query_budget"]
-            if data_key in q:
-                for stat_key in list(q[data_key].keys()):
-                    if stat_key in used_analyses.get(data_key, {}):
-                        for col_key in list(q[data_key][stat_key].keys()):
-                            if col_key in used_analyses.get(data_key, {}).get(stat_key, {}):
-                                # 쿼리 차감
-                                if q[data_key][stat_key][col_key] > 0:
-                                    q[data_key][stat_key][col_key] -= 1
-                request.session["query_budget"] = q
-                request.session.modified = True
-        
+    if data_key in used_analyses and used_analyses[data_key]:        
         # 사용한 분석 기록 초기화 (다시 분석할 수 있도록)
         del used_analyses[data_key]
         request.session["used_analyses"] = used_analyses
@@ -831,16 +820,6 @@ def api_reset_used_analyses(request, data_id):
     # 직접 코드 입력 기록도 초기화
     used_codes = request.session.get("used_custom_codes", {})
     if data_key in used_codes and used_codes[data_key]:
-        # 사용한 코드가 있다면 쿼리 차감
-        if "query_budget" in request.session:
-            q = request.session["query_budget"]
-            if data_key in q and "custom_code" in q[data_key]:
-                if "__custom_console__" in q[data_key]["custom_code"]:
-                    if q[data_key]["custom_code"]["__custom_console__"] > 0:
-                        q[data_key]["custom_code"]["__custom_console__"] -= 1
-            request.session["query_budget"] = q
-            request.session.modified = True
-        
         # 사용한 코드 기록 초기화
         del used_codes[data_key]
         request.session["used_custom_codes"] = used_codes

@@ -57,7 +57,7 @@ LOGGING = {
         'PISafeZone.views': {
         'handlers': ['console'],
         'level': 'INFO', 
-        'propagate': True,
+        'propagate': False,
         },
         'django': {
             'handlers': ['console'],

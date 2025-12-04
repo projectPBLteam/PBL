@@ -8,28 +8,68 @@ interface NotificationProps {
 }
 
 function CustomNotification({ type, message }: NotificationProps) {
-  if (!type || !message) return null;
+  if (!type || !message) return null;
 
-  const style = {
-    position: 'fixed' as 'fixed',
-    top: '20px', 
-    left: '50%', 
-    transform: 'translateX(-50%)', 
-    padding: '15px 25px',
-    borderRadius: '8px',
-    color: 'white',
-    fontWeight: 'bold' as 'bold',
-    zIndex: 1000,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-    backgroundColor: type === 'success' ? '#28a745' : '#dc3545', 
-    transition: 'opacity 0.3s ease-in-out',
-  };
+  const successColor = '#4CAF50'; 
+  const errorColor = '#F44336'; 
+  const color = type === 'success' ? successColor : errorColor;
+  
+  const style = {
+    position: 'fixed' as 'fixed',
+    top: '50%', 
+    left: '50%', 
+    transform: 'translate(-50%, -50%)', 
+    minWidth: '350px',
+    maxWidth: '500px',
+    padding: '30px 20px', 
+    borderRadius: '12px', 
+    color: '#333', 
+    fontWeight: 'bold' as 'bold',
+    zIndex: 10000, 
+    backgroundColor: 'white', 
+    boxShadow: '0 15px 35px rgba(0,0,0,0.3)', 
+    borderTop: `5px solid ${color}`, 
+    transition: 'all 0.3s ease-out',
+    display: 'flex', 
+    flexDirection: 'column' as 'column', 
+    alignItems: 'center',
+    textAlign: 'center' as 'center',
+    animation: 'fadeInUp 0.3s cubic-bezier(0.2, 0, 0, 1.4) forwards', 
+  };
+  
+  const icon = type === 'success' ? '✔' : '✖';
 
-  return (
-    <div style={style}>
-      {type === 'success' ? '✅ 성공: ' : '❌ 오류: '} {message}
-    </div>
-  );
+  const keyframesStyle = `
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translate(-50%, -40%); }
+      to { opacity: 1; transform: translate(-50%, -50%); }
+    }
+  `;
+
+  return (
+    <>
+      <style>{keyframesStyle}</style>
+      <div style={style}>
+        <div style={{
+          fontSize: '48px', 
+          color: color, 
+          marginBottom: '15px',
+          borderRadius: '50%',
+          border: `3px solid ${color}`,
+          width: '70px',
+          height: '70px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          {icon}
+        </div>
+        <div style={{fontSize: '18px', lineHeight: '1.4'}}>
+          {message}
+        </div>
+      </div>
+    </>
+  );
 }
 
 const STAT_OPTIONS = [
