@@ -1,0 +1,11 @@
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "privacy_db",
+        "USER": "root",
+        "PASSWORD": "<본인 MySQL root 비밀번호>",
+        "HOST": "127.0.0.1",
+        "PORT": "3306",
+    }
+}
+SECRET_KEY = "<임의의 긴 랜덤 문자열로 교체>"
